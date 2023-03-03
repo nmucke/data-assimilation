@@ -75,7 +75,6 @@ def compute_likelihood(
     likelihood = likelihood / np.sqrt(2*np.pi*likelihood_params['std']**2)/residual.shape[1]
     '''
 
-
     return likelihood
 
 @ray.remote
@@ -142,10 +141,17 @@ class ParticleFilter():
         
         for i in range(self.params['num_particles']):
             state_init_ensemble[i], pars_init_ensemble[i] = \
-                self.forward_model.model_error.add_model_error(
+                self.forward_model.model_error.get_initial_ensemble(
                     state=state_init_ensemble[i], 
                     pars=pars_init_ensemble[i]
                     )
+
+        '''
+        self.forward_model.model_error.add_model_error(
+            state=state_init_ensemble[i], 
+            pars=pars_init_ensemble[i]
+            )
+        '''
 
         return state_init_ensemble, pars_init_ensemble   
 
@@ -237,12 +243,14 @@ class ParticleFilter():
     ):
         """Compute the filtered solution."""
 
+
         weights = self._restart_weights()
         
         self.forward_model.model_error.initialize_model_error_distribution(
             state=state_init,
             pars=pars_init
             )
+            
         state_ensemble, pars_ensemble = self._compute_initial_ensemble(
                 state_init=state_init,
                 pars_init=pars_init
@@ -285,14 +293,6 @@ class ParticleFilter():
                 likelihood=likelihood, 
                 weights=weights
                 )
-
-            #plt.plot(self.forward_model.model.DG_vars.x.flatten('F'), state_ensemble[0,0,:,-1])
-            #plt.plot(true_sol.obs_x, true_sol.observations[0, :, i+1], 'k')
-
-            #plt.figure()
-            #plt.hist(pars_ensemble[:, 0], bins=30, density='Particle filter', label='advection_velocity')
-            #plt.axvline(true_sol.pars[0], color='k', label='True value', linewidth=3)
-            #plt.show()
             if ESS < self.ESS_threshold:
                 state_ensemble, pars_ensemble = \
                     self._get_resampled_particles(

@@ -4,6 +4,7 @@ from data_assimilation.forward_model import BaseForwardModel
 from data_assimilation.model_error import BaseModelError
 from data_assimilation.observation_operator import BaseObservationOperator
 import pdb
+import matplotlib.pyplot as plt
 
 class ModelError(BaseModelError):
     def __init__(self, params, state_dims=None, pars_dims=None):
@@ -17,23 +18,25 @@ class ModelError(BaseModelError):
 
     def get_initial_ensemble(self, state, pars):
         """Get the initial model error."""
-
-        pars = np.random.uniform(
-            low=pars - 10*self.params['pars_std'],
-            high=pars + 10*self.params['pars_std'],
-            size=(self.pars_dims),
+        pars[0] = np.random.uniform(
+            low=pars[0] - 10*self.params['pars_std'][0],
+            high=pars[0] + 10*self.params['pars_std'][0],
+            )
+        pars[1] = np.random.uniform(
+            low=pars[1] - 10*self.params['pars_std'][1],
+            high=pars[1] + 10*self.params['pars_std'][1],
             )
 
-        state_noise = np.random.normal(
-            loc=0.,
-            scale=self.params['state_std'],
-            size=self.state_dims,
-            )
+        state_noise = np.zeros(self.state_dims)
+        for i in range(self.state_dims[0]):
+            state_noise[i] = np.random.normal(
+                loc=0.,
+                scale=self.params['state_std'][i],
+                size=self.state_dims[1],
+                )
         state = state + state_noise
 
         return state, pars
-        
-
 
     def initialize_model_error_distribution(self, state, pars):
         """Initialize the model error."""
@@ -56,18 +59,19 @@ class ModelError(BaseModelError):
 
     def _sample_noise(self, state, pars):
         """Sample noise."""
+        state_noise = np.zeros(self.state_dims)
 
-        state_noise = np.random.normal(
-            loc=0.,
-            scale=self.params['state_std'],
-            size=self.state_dims,
-            )
-
+        for i in range(self.state_dims[0]):
+            state_noise[i] = np.random.normal(
+                loc=0.,
+                scale=self.params['state_std'][i],
+                size=self.state_dims[1],
+                )
         pars_mean = self.a*pars + (1 - self.a)*self.pars_weighted_mean
         
         pars_noise = np.random.multivariate_normal(
-            mean=pars_mean,
-            cov=self.smoothing_factor*self.pars_covariance,
+            mean=pars,#pars_mean,
+            cov=0*self.smoothing_factor*self.pars_covariance,
             )
         
         return state_noise, pars_noise
@@ -90,7 +94,7 @@ class ModelError(BaseModelError):
 
         return state, pars
 
-class AdvectionForwardModel(BaseForwardModel):
+class PipeFlowForwardModel(BaseForwardModel):
     def __init__(
         self, 
         model,
@@ -103,21 +107,14 @@ class AdvectionForwardModel(BaseForwardModel):
             self.model_error_params = model_error_params
             self.model_error = ModelError(
                 self.model_error_params,
-                state_dims=self.model.DG_vars.num_states*self.model.DG_vars.Np*self.model.DG_vars.K,
+                state_dims=(self.model.DG_vars.num_states, self.model.DG_vars.Np*self.model.DG_vars.K),
                 pars_dims=2,
                 )
 
-    def initialize_forward_model(self, state, pars):
-        """Initialize the forward model."""
-
-        self.pars = pars
-        self.model.model_params['advection_velocity'] = pars[0]
-        self.model.model_params['inflow_frequence'] = pars[1]
-
     def update_params(self, pars): 
         self.pars = pars
-        self.model.model_params['advection_velocity'] = pars[0]
-        self.model.model_params['inflow_frequence'] = pars[1]
+        self.model.model_params['leak_location'] = pars[0]
+        self.model.model_params['leak_size'] = pars[1]
 
     def compute_forward_model(self, t_range, state):
         """Compute the forward model."""
@@ -141,11 +138,10 @@ class ObservationOperator(BaseObservationOperator):
 
     def get_observations(self, state):
         """Compute the observations."""
-
         if len(state.shape) == 4:
-            return state[:, :, self.params['observation_index']]
+            return state[-1:, :, self.params['observation_index']]
         else:
-            return state[:, self.params['observation_index']]
+            return state[-1:, self.params['observation_index']]
 
 
 class TrueSolution():
