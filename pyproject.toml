@@ -10,7 +10,10 @@ description = "A data asiimilation package"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "numpy ~= 1.23.5"
+    "numpy ~= 1.23.5",
+    "torch", 
+    "torchvision",
+    "torchaudio"
 ]
 
 [project.urls]

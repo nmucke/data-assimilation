@@ -1,0 +1,68 @@
+
+
+particle_filter_args:
+  num_particles: 300
+  ESS_threshold: 0.5
+
+prior_pars:
+  type: 'uniform'
+  lower_bound: [0.01, 10.0]
+  upper_bound: [0.1, 4990]
+  num_pars: 2
+
+model_type: 'PDE'
+
+forward_model_args:
+  model_args:
+    basic_args:
+      xmin: 0
+      xmax: 5000
+      num_elements: 250
+      num_states: 3
+      polynomial_order: 2
+      polynomial_type: 'legendre'
+
+    steady_state:
+      newton_params:
+          solver: 'direct'
+          max_newton_iter: 200
+          newton_tol: 1.0e-5
+          num_jacobian_reuses: 120
+            
+    numerical_flux_args:
+      type: 'lax_friedrichs'
+      alpha: 0.5
+
+    stabilizer_args:
+      type: 'slope_limiter'
+      second_derivative_upper_bound: 1.0e-8
+
+    time_integrator_args:
+      type: 'BDF2'
+      step_size: 0.01
+      newton_params:
+        solver: 'direct'
+        max_newton_iter: 200
+        newton_tol: 1.0e-5
+        num_jacobian_reuses: 600
+
+    BC_args:
+      type: 'dirichlet'
+      treatment: 'naive'
+      state_or_flux: {'left': 'flux', 'right': 'state'}
+
+observation_args:
+  noise_variance: 0.000001
+  observation_times: [600, 1200, 1800, 2400, 3000, 3600, 4200, 4800]
+
+observation_operator_args:
+  observation_state_ids: [2]
+  observation_space_ids: [20, 60, 100, 140, 180, 220, 260, 300, 340, 380, 420, 460, 500]
+  full_space_points: [0, 5000, 512]
+
+likelihood_args:
+  noise_variance: 0.00001
+
+model_error_args:
+  noise_variance: 0.00001
+  

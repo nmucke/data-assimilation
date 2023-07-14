@@ -66,14 +66,9 @@ def compute_likelihood(
     residual = observation - model_observations
     residual_norm = np.linalg.norm(residual)
 
-    lol = norm(loc=0, scale=likelihood_params['std'])
+    likelihood_distribution = norm(loc=0, scale=likelihood_params['std'])
 
-    likelihood = lol.pdf(residual).sum()
-    '''
-    likelihood = np.exp(-0.5/likelihood_params['std']/likelihood_params['std'] * residual_norm)
-    likelihood = np.exp(-0.5/10/10 * residual_norm)
-    likelihood = likelihood / np.sqrt(2*np.pi*likelihood_params['std']**2)/residual.shape[1]
-    '''
+    likelihood = likelihood_distribution.pdf(residual).sum()
 
     return likelihood
 

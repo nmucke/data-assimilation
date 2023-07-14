@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pdb
 from matplotlib.animation import FuncAnimation
-from data_assimilation.particle_filter import ParticleFilter
+from data_assimilation.particle_filter_old import ParticleFilter
 from data_assimilation.aux_particle_filter import AuxParticleFilter
 from data_assimilation.test_cases.pipe_flow_equation import (
     TrueSolution,
