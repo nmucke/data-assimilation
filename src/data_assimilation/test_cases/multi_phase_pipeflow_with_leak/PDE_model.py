@@ -46,8 +46,8 @@ class PipeflowEquations(BaseModel):
 
     def update_parameters(self, pars):
 
-        Cd = pars[0]
-        leak_location = pars[1]
+        leak_location = pars[0]
+        Cd = pars[1]
 
         self.Cv = self.A/np.sqrt(self.rho_g_norm/2 * ((self.A/(self.A_orifice*Cd))**2-1))
         self.leak_location = leak_location

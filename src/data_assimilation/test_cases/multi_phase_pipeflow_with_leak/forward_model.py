@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ray
 
-from data_assimilation.base import BaseForwardModel
+from data_assimilation.particle_filter.base import BaseForwardModel
 from data_assimilation.test_cases.multi_phase_pipeflow_with_leak.PDE_model import PipeflowEquations
 
 
@@ -83,7 +83,7 @@ class PDEForwardModel(BaseForwardModel):
             state_out[i, 0] = self.model.evaluate_solution(
                 x=x_points,
                 sol_nodal=state[i, 0],
-            )
+            )/self.model.A
 
             state_out[i, 1] = self.model.evaluate_solution(
                 x=x_points,

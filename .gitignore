@@ -13,6 +13,7 @@ data/
 *.avi
 *.mov
 *.gif
+*.npz
 
 # Exclude MacOS files
 *.DS_Store

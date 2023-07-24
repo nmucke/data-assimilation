@@ -2,12 +2,11 @@
 
 import pdb
 import numpy as np
-from data_assimilation.base import BaseParticleFilter
+from data_assimilation.particle_filter.base import BaseParticleFilter
 
 
 
-
-class VanillaParticleFilter(BaseParticleFilter):
+class BootstrapFilter(BaseParticleFilter):
 
     def __init__(
         self,
@@ -22,8 +21,6 @@ class VanillaParticleFilter(BaseParticleFilter):
         weights=None, 
         restart=False
     ):
-
-
         if restart:
             return np.ones(self.num_particles) / self.num_particles
         

@@ -1,7 +1,7 @@
 
 
 import torch
-from data_assimilation.base import BaseModelError
+from data_assimilation.particle_filter.base import BaseModelError
 
 from scipy.stats import norm
 

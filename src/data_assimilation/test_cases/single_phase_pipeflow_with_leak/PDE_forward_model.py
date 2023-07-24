@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ray
 
-from data_assimilation.base import BaseForwardModel
+from data_assimilation.particle_filter.base import BaseForwardModel
 from data_assimilation.test_cases.single_phase_pipeflow_with_leak.PDE_model import PipeflowEquations
 
 
@@ -89,7 +89,7 @@ class PDEForwardModel(BaseForwardModel):
     def update_params(self, params):
         self.model.update_parameters(params)
     
-    def transform_state(self, state, x_points):
+    def transform_state(self, state, x_points, pars):
 
         state_out = np.zeros((state.shape[0], 2, x_points.shape[0]))
         
@@ -105,8 +105,8 @@ class PDEForwardModel(BaseForwardModel):
             )
 
             state_out[i, 1] = state_out[i, 1]/state_out[i, 0]
-            state_out[i, 0] = \
-                self.model.density_to_pressure(state_out[i, 1]/self.model_parameters['A'])
+            state_out[i, 0] = state_out[i, 0]/self.model.A 
+            #    self.model.density_to_pressure(state_out[i, 1]/self.model_parameters['A'])
 
         return state_out
             
