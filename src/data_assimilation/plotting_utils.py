@@ -109,7 +109,7 @@ def plot_parameter_results(
         with object_storage_client.fs.open(f'{object_storage_client.bucket_name}@{object_storage_client.namespace}/{save_path}/leak_location.png', 'wb') as f:
             plt.savefig(f)
     else:
-        plt.savefig(save_path)
+        plt.savefig(f'{save_path}/leak_location.png')
     plt.close()
 
     plt.figure()
@@ -119,5 +119,5 @@ def plot_parameter_results(
         with object_storage_client.fs.open(f'{object_storage_client.bucket_name}@{object_storage_client.namespace}/{save_path}/leak_size.png', 'wb') as f:
             plt.savefig(f)
     else:
-        plt.savefig(save_path)
+        plt.savefig(f'{save_path}/leak_size.png')
     plt.close()

@@ -14,6 +14,12 @@ dependencies = [
     "torch", 
     "torchvision",
     "torchaudio",
+    "ray[default]",
+    "matplotlib",
+    "tqdm",
+    'oci',
+    'ocifs',
+    "scipy",
 ]
 
 [project.urls]

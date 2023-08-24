@@ -5,6 +5,7 @@ import torch
 from data_assimilation.particle_filter.base import BaseModelError
 import pdb
 from scipy.stats import norm
+import matplotlib.pyplot as plt
 
 class PDEModelError(BaseModelError):
     def __init__(

@@ -33,7 +33,7 @@ TEST_CASE = f'{PHASE}_phase_pipeflow_with_leak'
 TRUE_SOLUTION_PATH = f'data/{TEST_CASE}/test'
 
 DISTRIBUTED = True
-NUM_WORKERS = 20
+NUM_WORKERS = 64
 
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
 
@@ -83,7 +83,7 @@ def main():
 
     object_storage_client = ObjectStorageClientWrapper(bucket_name)
 
-    test_case_index = 1
+    test_case_index = 0
     # Initialize true solution.
     true_state = object_storage_client.get_numpy_object(
         source_path=f'{ORACLE_PATH}/state/sample_{test_case_index}.npz'
@@ -133,7 +133,7 @@ def main():
         # Initialize model error.
         model_error = PDEModelError(
             **config['model_error_args'],
-            
+
         )
 
     # Initialize particle filter.
