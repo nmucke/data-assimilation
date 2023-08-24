@@ -26,19 +26,23 @@ from data_assimilation.particle_filter.observation_operator import (
 from data_assimilation.true_solution import TrueSolution
 from data_assimilation.utils import create_directory
 
-MODEL_TYPE = 'neural_network'
-TEST_CASE = 'single_phase_pipeflow_with_leak'
+PHASE = 'single'
+
+MODEL_TYPE = 'PDE'
+TEST_CASE = f'{PHASE}_phase_pipeflow_with_leak'
 TRUE_SOLUTION_PATH = f'data/{TEST_CASE}/test'
 
-DISTRIBUTED = False
-NUM_WORKERS = 30
+DISTRIBUTED = True
+NUM_WORKERS = 20
+
+ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
 
 DEVICE = 'cpu'
 
 SAVE_LOCAL_OR_ORACLE = 'local'
 BUCKET_NAME = 'data_assimilation_results'
 
-SAVE_LEVEL = 1
+SAVE_LEVEL = 0
 
 if MODEL_TYPE == 'neural_network':
     NNForwardModel = importlib.import_module(
@@ -75,9 +79,19 @@ def main():
         )
     
 
+    bucket_name = "bucket-20230222-1753"
+
+    object_storage_client = ObjectStorageClientWrapper(bucket_name)
+
+    test_case_index = 1
     # Initialize true solution.
-    true_state = np.load(f'{TRUE_SOLUTION_PATH}/state/sample_8.npy')
-    true_pars = np.load(f'{TRUE_SOLUTION_PATH}/pars/sample_8.npy')
+    true_state = object_storage_client.get_numpy_object(
+        source_path=f'{ORACLE_PATH}/state/sample_{test_case_index}.npz'
+    )
+    
+    true_pars = object_storage_client.get_numpy_object(
+        source_path=f'{ORACLE_PATH}/pars/sample_{test_case_index}.npz'
+    )
 
     true_solution = TrueSolution(
         state=true_state,
@@ -119,6 +133,7 @@ def main():
         # Initialize model error.
         model_error = PDEModelError(
             **config['model_error_args'],
+            
         )
 
     # Initialize particle filter.
@@ -161,6 +176,7 @@ def main():
         state_ensemble_save[:, :, :, time_idx] = forward_model.transform_state(
             state_ensemble[:, :, :, time_idx],
             x_points=observation_operator.full_space_points,
+            pars=pars_ensemble[:, :, -1],
         )
 
     if SAVE_LOCAL_OR_ORACLE == 'oracle':
@@ -176,15 +192,30 @@ def main():
             destination_path=f'{ORACLE_SAVE_PATH}/pars.npz',
         )
 
+        plot_state_results(
+            state_ensemble=state_ensemble_save,
+            true_solution=true_solution,
+            save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
+            object_storage_client=object_storage_client,
+            num_states_to_plot = 3 if PHASE == 'multi' else 2,
+        )
+
+        plot_parameter_results(
+            pars_ensemble=pars_ensemble,
+            true_solution=true_solution,
+            save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
+            object_storage_client=object_storage_client,
+        )
+
     elif SAVE_LOCAL_OR_ORACLE == 'local':
         np.savez_compressed(f'{LOCAL_SAVE_PATH}/states.npz', data=state_ensemble_save)
         np.savez_compressed(f'{LOCAL_SAVE_PATH}/pars.npz', data=pars_ensemble)
-
 
         plot_state_results(
             state_ensemble=state_ensemble_save,
             true_solution=true_solution,
             save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
+            num_states_to_plot = 3 if PHASE == 'multi' else 2,
         )
 
         plot_parameter_results(
@@ -192,6 +223,8 @@ def main():
             true_solution=true_solution,
             save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
         )
+
+
     
 if __name__ == '__main__':
 

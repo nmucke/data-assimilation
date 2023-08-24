@@ -1,13 +1,13 @@
 
 
 particle_filter_args:
-  num_particles: 300
+  num_particles: 30
   ESS_threshold: 0.5
 
 prior_pars:
   type: 'uniform'
-  lower_bound: [10.0, 0.01]
-  upper_bound: [4990, 0.1]
+  lower_bound: [10.0, 1.]
+  upper_bound: [4990, 2.]
   num_pars: 2
 
 model_type: 'PDE'
@@ -17,7 +17,7 @@ forward_model_args:
     basic_args:
       xmin: 0
       xmax: 5000
-      num_elements: 250
+      num_elements: 300
       num_states: 3
       polynomial_order: 2
       polynomial_type: 'legendre'
@@ -53,8 +53,8 @@ forward_model_args:
 
 observation_args:
   noise_variance: 0.000001
-  observation_times: [600, 1200, 1800, 3400]
-  full_time_points: [0, 250, 25000]
+  observation_times: [50, 150, 300, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500]
+  full_time_points: [0, 180, 18000]
 
 observation_operator_args:
   observation_state_ids: [2]

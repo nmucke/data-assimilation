@@ -27,7 +27,7 @@ class PDEObservationOperator(BaseObservationOperator):
                 full_space_points[0], 
                 full_space_points[1], 
                 full_space_points[2]
-                )
+            )
             
             self.x_observation_points = self.full_space_points[self.observation_space_ids]            
 

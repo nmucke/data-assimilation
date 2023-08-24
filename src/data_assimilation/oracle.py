@@ -103,11 +103,11 @@ class ObjectStorageClientWrapper:
             with self.fs.open(f'{self.bucket_name}@{self.namespace}/{destination_path}/config.yml', 'w') as f:
                 yaml.dump(config, f)
     
-    def get_model(self, source_path, with_config=True):
+    def get_model(self, source_path, with_config=True, device='cpu'):
         
         # Load the model state dicts from object storage
         with self.fs.open(f'{self.bucket_name}@{self.namespace}/{source_path}/model.pt', 'rb') as f:
-            state_dict = torch.load(f)
+            state_dict = torch.load(f, map_location=device)
 
         # Load the config from object storage
         if with_config:
@@ -139,6 +139,8 @@ class ObjectStorageClientWrapper:
             #preprocessor = torch.load(f)
 
         return preprocessor
+    
+
 
 
 

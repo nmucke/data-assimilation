@@ -64,14 +64,14 @@ class PDEForwardModel(BaseForwardModel):
         model_args.pop('steady_state')
 
         self.model_parameters = {
-            'L': 2000,
+            'L': 1000,
             'd': 0.508,
             'A': np.pi*0.508**2/4,
             'c': 308.,
             'rho_ref': 52.67,
             'p_amb': 101325.,
             'p_ref': 52.67*308**2,
-            'e': 1e-2,
+            'e': 1e-8,
             'mu': 1.2e-5,
             'Cd': 5e-4,
             'leak_location': 500,
@@ -105,7 +105,7 @@ class PDEForwardModel(BaseForwardModel):
             )
 
             state_out[i, 1] = state_out[i, 1]/state_out[i, 0]
-            state_out[i, 0] = state_out[i, 0]/self.model.A 
+            state_out[i, 0] = self.model.density_to_pressure(state_out[i, 0]/self.model.A) 
             #    self.model.density_to_pressure(state_out[i, 1]/self.model_parameters['A'])
 
         return state_out
@@ -126,6 +126,7 @@ class PDEForwardModel(BaseForwardModel):
         state = np.repeat(state, pars.shape[0], axis=0)
 
         pars = np.expand_dims(pars, axis=-1)
+
 
         return state, pars
 

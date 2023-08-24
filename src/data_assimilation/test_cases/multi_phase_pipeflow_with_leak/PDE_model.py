@@ -26,7 +26,8 @@ class PipeflowEquations(BaseModel):
             setattr(self, k, v)
         
 
-        self.D_orifice = 0.01
+
+        self.D_orifice = 0.03
         self.A_orifice = np.pi*(self.D_orifice/2)**2
         self.Cv = self.A/np.sqrt(self.rho_g_norm/2 * ((self.A/(self.A_orifice*self.Cd))**2-1))
 
@@ -46,12 +47,9 @@ class PipeflowEquations(BaseModel):
 
     def update_parameters(self, pars):
 
-        leak_location = pars[0]
-        Cd = pars[1]
 
-        self.Cv = self.A/np.sqrt(self.rho_g_norm/2 * ((self.A/(self.A_orifice*Cd))**2-1))
-        self.leak_location = leak_location
-
+        self.leak_location = pars[0]
+        self.Cd = pars[1]
         
         self.xElementL = np.int32(self.leak_location / self.basic_args['xmax'] * self.DG_vars.K)
 
@@ -60,7 +58,7 @@ class PipeflowEquations(BaseModel):
         rl = 2 * (self.leak_location - self.DG_vars.VX[self.xElementL]) / self.DG_vars.deltax - 1
         for i in range(0, self.DG_vars.N + 1):
             l[i] = JacobiP(np.array([rl]), 0, 0, i)
-        self.lagrange = np.linalg.solve(np.transpose(self.DG_vars.V), l)    
+        self.lagrange = np.linalg.solve(np.transpose(self.DG_vars.V), l)  
 
 
     def density_to_pressure(self, rho):
@@ -349,6 +347,8 @@ class PipeflowEquations(BaseModel):
         pressureL = self.evaluate_solution(np.array([self.leak_location]), pressure)[0]
         rhoL = self.evaluate_solution(np.array([self.leak_location]), rho_m)[0]
 
+        self.Cv = self.A/np.sqrt(rhoL/2 * ((self.A/(self.A_orifice*self.Cd))**2-1)) #
+
         discharge_sqrt_coef = (pressureL - self.p_amb) * rhoL
         f_l[:, self.xElementL] = self.Cv * np.sqrt(discharge_sqrt_coef) * self.lagrange
         f_l[:, self.xElementL] = self.DG_vars.invMk @ f_l[:, self.xElementL]
@@ -370,7 +370,7 @@ class PipeflowEquations(BaseModel):
         
         s = np.zeros((self.DG_vars.num_states,self.DG_vars.Np*self.DG_vars.K))
 
-        point_source = np.zeros((self.DG_vars.Np*self.DG_vars.K))
+        #point_source = np.zeros((self.DG_vars.Np*self.DG_vars.K))
         if t>0.:
 
             '''

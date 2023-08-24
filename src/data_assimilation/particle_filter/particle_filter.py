@@ -25,9 +25,9 @@ class BootstrapFilter(BaseParticleFilter):
             return np.ones(self.num_particles) / self.num_particles
         
         weights = weights * likelihood
-        weights = weights / weights.sum()
+        weights = weights / (weights.sum() + 1e-12)
 
-        ESS = 1 / np.sum(weights**2)
+        ESS = 1 / (np.sum(weights**2) + 1e-12)
 
         return weights, ESS
     
@@ -35,7 +35,7 @@ class BootstrapFilter(BaseParticleFilter):
         
         state_ensemble, pars_ensemble = self.forward_model.initialize_state(
             pars=pars
-            )
+        )
         
         return state_ensemble, pars_ensemble
 
