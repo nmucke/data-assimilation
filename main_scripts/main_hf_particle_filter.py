@@ -133,6 +133,7 @@ def main():
         # Initialize model error.
         model_error = PDEModelError(
             **config['model_error_args'],
+            space_dim=config['forward_model_args']['model_args']['basic_args']['num_elements']*(config['forward_model_args']['model_args']['basic_args']['polynomial_order']+1),
 
         )
 

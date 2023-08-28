@@ -181,7 +181,7 @@ class BaseParticleFilter(ABC):
                     state_ensemble[:, :, -num_previous_steps:],
                 pars_ensemble=pars_ensemble[:, :, -1],
             )
-
+            
             # Add model error to the particles
             prior_state_ensemble, prior_pars_ensemble = self.model_error.add_model_error(
                 state_ensemble=\
@@ -189,6 +189,14 @@ class BaseParticleFilter(ABC):
                     state_ensemble[:, :, -num_previous_steps:],
                 pars_ensemble=pars_ensemble[:, :, -1:],
             )
+
+            for i in range(2):
+                plt.figure()
+                plt.plot(prior_state_ensemble[0, i, :])
+                plt.plot(state_ensemble[0, i, :, -1])
+                plt.show()
+
+            pdb.set_trace()
             
             # Compute the prior particles
             prior_state_ensemble, t_vec = self._compute_prior_particles(
@@ -240,8 +248,8 @@ class BaseParticleFilter(ABC):
                 posterior_state_ensemble = prior_state_ensemble
                 posterior_pars_ensemble = prior_pars_ensemble
             
-            '''
 
+            '''
             lol = self.forward_model.transform_state(
                 posterior_state_ensemble[:, :, :, -1],
                 x_points=self.observation_operator.full_space_points,
@@ -252,14 +260,19 @@ class BaseParticleFilter(ABC):
             for j in range(posterior_state_ensemble.shape[0]):
                 
                 plt.plot(
-                    np.linspace(0, 1000, 256),
-                    lol[j, 0],
+                    np.linspace(0, 5000, 512),
+                    lol[j, 1],
                     )
             plt.plot(
-                np.linspace(0, 1000, 256),
-                true_solution.state[0, :, true_solution.observation_times[i]], 
+                np.linspace(0, 5000, 512),
+                true_solution.state[1, :, true_solution.observation_times[i]], 
                 '--', linewidth=3., color='black'
                 )    
+            plt.plot(
+                [np.linspace(0, 5000, 512)[20], np.linspace(0, 5000, 512)[492]],
+                true_solution.observations[:, i],
+                'o', color='black', markersize=5
+            )
             plt.show()
             '''
 
