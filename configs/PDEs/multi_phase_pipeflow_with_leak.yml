@@ -65,5 +65,5 @@ likelihood_args:
   noise_variance: 0.00001
 
 model_error_args:
-  noise_variance: 0.00001
+  noise_variance: [0.0001, 0.0001, 0.0001]
   
