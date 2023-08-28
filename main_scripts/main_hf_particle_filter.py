@@ -39,7 +39,7 @@ ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
 
 DEVICE = 'cpu'
 
-SAVE_LOCAL_OR_ORACLE = 'local'
+SAVE_LOCAL_OR_ORACLE = 'oracle'
 BUCKET_NAME = 'data_assimilation_results'
 
 SAVE_LEVEL = 0

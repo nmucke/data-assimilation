@@ -189,7 +189,8 @@ class BaseParticleFilter(ABC):
                     state_ensemble[:, :, -num_previous_steps:],
                 pars_ensemble=pars_ensemble[:, :, -1:],
             )
-
+            
+            '''
             for i in range(2):
                 plt.figure()
                 plt.plot(prior_state_ensemble[0, i, :])
@@ -197,6 +198,7 @@ class BaseParticleFilter(ABC):
                 plt.show()
 
             pdb.set_trace()
+            '''
             
             # Compute the prior particles
             prior_state_ensemble, t_vec = self._compute_prior_particles(
