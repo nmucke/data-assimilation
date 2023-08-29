@@ -54,6 +54,7 @@ class PDEModelError(BaseModelError):
 
         state_ensemble = state_ensemble.copy()
 
+        '''
         for i in range(self.num_states):
 
             noise = self.model_error_distributions[i].rvs(
@@ -67,7 +68,7 @@ class PDEModelError(BaseModelError):
                 #self.model_error_distributions[i].rvs(
                 #    size=(state_ensemble.shape[0], state_ensemble.shape[2])
                 #)
-        
+        '''
         return state_ensemble, pars_ensemble 
     
     def update(self, state_ensemble, pars_ensemble):

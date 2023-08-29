@@ -189,9 +189,8 @@ class BaseParticleFilter(ABC):
                     state_ensemble[:, :, -num_previous_steps:],
                 pars_ensemble=pars_ensemble[:, :, -1:],
             )
-            
             '''
-            for i in range(2):
+            for i in range(3):
                 plt.figure()
                 plt.plot(prior_state_ensemble[0, i, :])
                 plt.plot(state_ensemble[0, i, :, -1])

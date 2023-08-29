@@ -26,13 +26,13 @@ from data_assimilation.particle_filter.observation_operator import (
 from data_assimilation.true_solution import TrueSolution
 from data_assimilation.utils import create_directory
 
-PHASE = 'single'
+PHASE = 'multi'
 
 MODEL_TYPE = 'PDE'
 TEST_CASE = f'{PHASE}_phase_pipeflow_with_leak'
 TRUE_SOLUTION_PATH = f'data/{TEST_CASE}/test'
 
-DISTRIBUTED = True
+DISTRIBUTED = False
 NUM_WORKERS = 64
 
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
@@ -83,7 +83,7 @@ def main():
 
     object_storage_client = ObjectStorageClientWrapper(bucket_name)
 
-    test_case_index = 0
+    test_case_index = 4
     # Initialize true solution.
     true_state = object_storage_client.get_numpy_object(
         source_path=f'{ORACLE_PATH}/state/sample_{test_case_index}.npz'
