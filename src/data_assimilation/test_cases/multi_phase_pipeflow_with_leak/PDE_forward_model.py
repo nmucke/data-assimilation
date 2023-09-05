@@ -75,7 +75,7 @@ class PDEForwardModel(BaseForwardModel):
     def update_params(self, params):
         self.model.update_parameters(params)
     
-    def transform_state(self, state, x_points, pars):
+    def transform_state(self, state, x_points, pars=None):
 
         state_out = np.zeros((state.shape[0], 3, x_points.shape[0]))
         

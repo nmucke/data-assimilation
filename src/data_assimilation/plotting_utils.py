@@ -35,8 +35,16 @@ def plot_state_results(
     save_path: str,
     object_storage_client: ObjectStorageClientWrapper = None,
     num_states_to_plot: int = 3,
+    phase: str = 'multi',
 ):
-    
+    if phase == 'multi':
+        pressure_obs = True if 1 in true_solution.observation_operator.observation_state_ids else False
+
+    else:
+        pressure_obs = True if 0 in true_solution.observation_operator.observation_state_ids else False
+
+    obs = true_solution.observations[:, -1]
+
     x_vec = true_solution.observation_operator.full_space_points
     x_obs_vec = true_solution.observation_operator.x_observation_points
     
@@ -69,7 +77,7 @@ def plot_state_results(
         true_state=true_solution.state[1, :, true_solution.observation_times[-1]] if num_states_to_plot == 3 else true_solution.state[0, :, true_solution.observation_times[-1]],
         save_path=pressure_path,
         x_obs_vec=x_obs_vec,
-        state_obs=true_solution.observations[:, -1] if 0 in true_solution.observation_operator.observation_state_ids else None,
+        state_obs=obs if pressure_obs else None,
     )
     if object_storage_client is not None:
         with object_storage_client.fs.open(f'{object_storage_client.bucket_name}@{object_storage_client.namespace}/{save_path}/pressure.png', 'wb') as f:
@@ -86,7 +94,7 @@ def plot_state_results(
         true_state=true_solution.state[-1, :, true_solution.observation_times[-1]] if num_states_to_plot == 3 else true_solution.state[1, :, true_solution.observation_times[-1]],
         save_path=velocity_path,
         x_obs_vec=x_obs_vec,
-        state_obs=true_solution.observations[:, -1] if 1 in true_solution.observation_operator.observation_state_ids else None,
+        state_obs=obs if not pressure_obs else None,
     )
     if object_storage_client is not None:
         with object_storage_client.fs.open(f'{object_storage_client.bucket_name}@{object_storage_client.namespace}/{save_path}/velocity.png', 'wb') as f:

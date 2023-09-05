@@ -14,6 +14,7 @@ data/
 *.mov
 *.gif
 *.npz
+*.png
 
 # Exclude MacOS files
 *.DS_Store

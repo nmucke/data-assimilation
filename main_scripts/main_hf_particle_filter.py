@@ -4,6 +4,7 @@ import yaml
 import pdb
 import numpy as np
 from matplotlib import pyplot as plt
+import torch
 
 from data_assimilation.plotting_utils import (
     plot_parameter_results, 
@@ -17,32 +18,39 @@ from data_assimilation.particle_filter.model_error import (
 )
 from data_assimilation.particle_filter.likelihood import (
     NeuralNetworkLikelihood, 
-    PDELikelihood
+    Likelihood
 )
 from data_assimilation.particle_filter.observation_operator import (
-    PDEObservationOperator,
-    LatentObservationOperator,
+    #PDEObservationOperator,
+    #LatentObservationOperator,
+    ObservationOperator
 )
 from data_assimilation.true_solution import TrueSolution
 from data_assimilation.utils import create_directory
 
+torch.set_default_dtype(torch.float32)
+
+torch.backends.cuda.enable_flash_sdp(enabled=True)
+torch.set_float32_matmul_precision('medium')
+torch.backends.cuda.matmul.allow_tf32 = True
+
 PHASE = 'multi'
 
-MODEL_TYPE = 'PDE'
+MODEL_TYPE = 'neural_network'
 TEST_CASE = f'{PHASE}_phase_pipeflow_with_leak'
 TRUE_SOLUTION_PATH = f'data/{TEST_CASE}/test'
 
 DISTRIBUTED = False
-NUM_WORKERS = 64
+NUM_WORKERS = 25
 
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
 
-DEVICE = 'cpu'
+DEVICE = 'cuda'
 
-SAVE_LOCAL_OR_ORACLE = 'oracle'
+SAVE_LOCAL_OR_ORACLE = 'local'
 BUCKET_NAME = 'data_assimilation_results'
 
-SAVE_LEVEL = 0
+SAVE_LEVEL = 1
 
 if MODEL_TYPE == 'neural_network':
     NNForwardModel = importlib.import_module(
@@ -68,7 +76,8 @@ elif SAVE_LOCAL_OR_ORACLE == 'oracle':
 
 def main():
 
-    # Initialize observation operator.
+    # Initialize observation operator
+    '''
     if config['model_type'] == 'neural_network':
         observation_operator = LatentObservationOperator(
             **config['observation_operator_args'],
@@ -77,7 +86,10 @@ def main():
         observation_operator = PDEObservationOperator(
             **config['observation_operator_args'],
         )
-    
+    '''
+    observation_operator = ObservationOperator(
+            **config['observation_operator_args'],
+        )
 
     bucket_name = "bucket-20230222-1753"
 
@@ -109,15 +121,12 @@ def main():
             device=DEVICE,
             num_particles=config['particle_filter_args']['num_particles'],
         )
-        # Initialize likelihood.
-        likelihood = NeuralNetworkLikelihood(
-            observation_operator=observation_operator,
-            **config['likelihood_args'],
-        )
+        
         # Initialize model error.
         model_error = NeuralNetworkModelError(
             **config['model_error_args'],
         )
+
     elif config['model_type'] == 'PDE':
 
         # Initialize forward model.
@@ -125,17 +134,21 @@ def main():
             **config['forward_model_args'],
             distributed=DISTRIBUTED,
         )
-        # Initialize likelihood.
-        likelihood = PDELikelihood(
-            observation_operator=observation_operator,
-            **config['likelihood_args'],
-        )
+
         # Initialize model error.
         model_error = PDEModelError(
             **config['model_error_args'],
-            space_dim=config['forward_model_args']['model_args']['basic_args']['num_elements']*(config['forward_model_args']['model_args']['basic_args']['polynomial_order']+1),
-
+            space_dim=\
+                config['forward_model_args']['model_args']['basic_args']['num_elements']*\
+                (config['forward_model_args']['model_args']['basic_args']['polynomial_order']+1),
         )
+    
+
+    # Initialize likelihood.
+    likelihood = Likelihood(
+        observation_operator=observation_operator,
+        **config['likelihood_args'],
+    )
 
     # Initialize particle filter.
     particle_filter = BootstrapFilter(
@@ -168,17 +181,36 @@ def main():
     state_ensemble_save = np.zeros(
         (
             state_ensemble.shape[0], 
-            state_ensemble.shape[1], 
+            2 if PHASE == 'single' else 3, 
             config['observation_operator_args']['full_space_points'][-1],
             state_ensemble.shape[-1], 
         )
     )
-    for time_idx in range(state_ensemble.shape[-1]):
-        state_ensemble_save[:, :, :, time_idx] = forward_model.transform_state(
-            state_ensemble[:, :, :, time_idx],
-            x_points=observation_operator.full_space_points,
-            pars=pars_ensemble[:, :, -1],
+    pars_ensemble_save = np.zeros(
+        (
+            pars_ensemble.shape[0], 
+            pars_ensemble.shape[1], 
+            pars_ensemble.shape[-1], 
         )
+    )
+
+    with torch.no_grad():
+        for time_idx in range(state_ensemble.shape[-1]):
+            state_ensemble_save[:, :, :, time_idx] = \
+                forward_model.transform_state(
+                        state_ensemble[:, :, :, time_idx] if config['model_type'] == 'PDE' else\
+                        state_ensemble[:, :, time_idx].unsqueeze(-1),
+                    x_points=observation_operator.full_space_points,
+                    pars=pars_ensemble[:, :, time_idx]
+                )
+
+    for time_idx in range(pars_ensemble.shape[-1]):
+        if config['model_type'] == 'neural_network':
+            pars_ensemble_save[:, :, time_idx] = forward_model.transform_pars(
+                pars_ensemble[:, :, time_idx]                                                                                                                      
+            )
+        else:
+            pars_ensemble_save[:, :, time_idx] = pars_ensemble[:, :, time_idx]
 
     if SAVE_LOCAL_OR_ORACLE == 'oracle':
 
@@ -189,7 +221,7 @@ def main():
             destination_path=f'{ORACLE_SAVE_PATH}/states.npz',
         )
         object_storage_client.put_numpy_object(
-            data=pars_ensemble,
+            data=pars_ensemble_save,
             destination_path=f'{ORACLE_SAVE_PATH}/pars.npz',
         )
 
@@ -199,10 +231,11 @@ def main():
             save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
             object_storage_client=object_storage_client,
             num_states_to_plot = 3 if PHASE == 'multi' else 2,
+            phase=PHASE,
         )
 
         plot_parameter_results(
-            pars_ensemble=pars_ensemble,
+            pars_ensemble=pars_ensemble_save,
             true_solution=true_solution,
             save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
             object_storage_client=object_storage_client,
@@ -210,17 +243,18 @@ def main():
 
     elif SAVE_LOCAL_OR_ORACLE == 'local':
         np.savez_compressed(f'{LOCAL_SAVE_PATH}/states.npz', data=state_ensemble_save)
-        np.savez_compressed(f'{LOCAL_SAVE_PATH}/pars.npz', data=pars_ensemble)
+        np.savez_compressed(f'{LOCAL_SAVE_PATH}/pars.npz', data=pars_ensemble_save)
 
         plot_state_results(
             state_ensemble=state_ensemble_save,
             true_solution=true_solution,
             save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
             num_states_to_plot = 3 if PHASE == 'multi' else 2,
+            phase=PHASE,
         )
 
         plot_parameter_results(
-            pars_ensemble=pars_ensemble,
+            pars_ensemble=pars_ensemble_save,
             true_solution=true_solution,
             save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
         )

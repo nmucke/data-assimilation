@@ -5,33 +5,13 @@ import pdb
 import numpy as np
 from matplotlib import pyplot as plt
 
-from data_assimilation.plotting_utils import (
-    plot_parameter_results, 
-    plot_state_results
-)
-from data_assimilation.oracle import ObjectStorageClientWrapper
-from data_assimilation.particle_filter.particle_filter import BootstrapFilter
-from data_assimilation.particle_filter.model_error import (
-    PDEModelError,
-    NeuralNetworkModelError,
-)
-from data_assimilation.particle_filter.likelihood import (
-    NeuralNetworkLikelihood, 
-    PDELikelihood
-)
-from data_assimilation.particle_filter.observation_operator import (
-    PDEObservationOperator,
-    LatentObservationOperator,
-)
-from data_assimilation.true_solution import TrueSolution
 from data_assimilation.utils import create_directory
 
-MODEL_TYPE = 'neural_network'
-TEST_CASE = 'single_phase_pipeflow_with_leak'
+TEST_CASE = 'multi_phase_pipeflow_with_leak'
 TRUE_SOLUTION_PATH = f'data/{TEST_CASE}/test'
 
 DISTRIBUTED = True
-NUM_WORKERS = 10
+NUM_WORKERS = 25
 
 SAVE_LEVEL = 1
 
@@ -43,6 +23,11 @@ PDEForwardModel = importlib.import_module(
 CONFIG_PATH = f'configs/PDEs/{TEST_CASE}.yml'
 with open(CONFIG_PATH, 'r') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
+
+# Load config file.
+CONFIG_PATH = f'configs/neural_networks/{TEST_CASE}.yml'
+with open(CONFIG_PATH, 'r') as f:
+    NN_config = yaml.load(f, Loader=yaml.FullLoader)
 
 LOCAL_SAVE_PATH = f'data/{TEST_CASE}/initial_conditions'
 create_directory(LOCAL_SAVE_PATH)
@@ -58,13 +43,18 @@ def main():
     init_pars = np.random.uniform(
         low=config['prior_pars']['lower_bound'],
         high=config['prior_pars']['upper_bound'],
-        size=(500, config['prior_pars']['num_pars']),
+        size=(25000, config['prior_pars']['num_pars']),
     )
 
     init_states, _ = forward_model.initialize_state(
         pars=init_pars
     )
-    t_range = [0, 16*5*0.01]
+
+    t_end = NN_config['forward_model_args']['model_args']['num_previous_steps'] * \
+        NN_config['forward_model_args']['num_skip_steps'] * \
+        NN_config['forward_model_args']['PDE_step_size']
+    
+    t_range = [0, t_end]
 
 
     state, _ = forward_model.compute_forward_model(
@@ -73,8 +63,12 @@ def main():
         t_range=t_range,
     )
 
-    full_x_points = np.linspace(0, 2000, 256)
-    state = state[:, :, : , ::5]
+    full_x_points = np.linspace(
+        0, 
+        NN_config['forward_model_args']['x_max'], 
+        NN_config['forward_model_args']['space_dim']
+    )
+    state = state[:, :, : , ::NN_config['forward_model_args']['num_skip_steps']]
 
     state_transformed = np.zeros((state.shape[0], state.shape[1], len(full_x_points), state.shape[-1]))
     for t_idx in range(state.shape[-1]):

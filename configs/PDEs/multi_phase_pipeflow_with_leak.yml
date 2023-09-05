@@ -1,7 +1,7 @@
 
 
 particle_filter_args:
-  num_particles: 1500
+  num_particles: 25
   ESS_threshold: 0.5
 
 prior_pars:
@@ -53,17 +53,17 @@ forward_model_args:
 
 observation_args:
   noise_variance: 0.00001
-  observation_times: [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3400, 3600]
+  observation_times: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3400, 3600]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:
   observation_state_ids: [1]
-  observation_space_ids: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
+  observation_space_ids: [50, 250, 450]
   full_space_points: [0, 5000, 512]
 
 likelihood_args:
   noise_variance: 0.00002
 
 model_error_args:
-  noise_variance: [1.0e-8, 1.0e-7, 1.0e-7]
+  noise_variance: [1.0e-6, 1.0e-5, 1.0e-5]
   

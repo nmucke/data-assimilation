@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from data_assimilation.particle_filter.base import BaseLikelihood, BaseObservationOperator
 
-from scipy.stats import norm
+from scipy.stats import norm, multivariate_normal
 
 class NeuralNetworkLikelihood(BaseLikelihood):
     def __init__(
@@ -36,16 +36,16 @@ class NeuralNetworkLikelihood(BaseLikelihood):
         model_observations = self.observation_operator.get_observations(
             state=state,
             ensemble=True
-            )
+        )
 
-        residual = observations - model_observations.detach().numpy()
+        residual = observations - model_observations
 
         #log_likelihood = self.likelihood_distribution.log_prob(residual).sum()
         log_likelihood = self.likelihood_distribution.pdf(residual).sum(axis=1)
 
         return log_likelihood
 
-class PDELikelihood(BaseLikelihood):
+class Likelihood(BaseLikelihood):
     def __init__(
         self,
         observation_operator: BaseObservationOperator,
@@ -58,7 +58,11 @@ class PDELikelihood(BaseLikelihood):
         self.observation_operator = observation_operator
         self.noise_variance = noise_variance
 
-        self.likelihood_distribution = norm(loc=0, scale=np.sqrt(self.noise_variance))            
+        #self.likelihood_distribution = norm(loc=0, scale=np.sqrt(self.noise_variance))   
+        self.likelihood_distribution = multivariate_normal(
+            mean=np.zeros(observation_operator.num_observations), 
+            cov=self.noise_variance*np.eye(observation_operator.num_observations)
+        )         
 
     def compute_log_likelihood(
         self, 
@@ -69,10 +73,10 @@ class PDELikelihood(BaseLikelihood):
         model_observations = self.observation_operator.get_observations(
             state=state,
             ensemble=True
-            )
+            )    
         
         residual = observations - model_observations
 
-        log_likelihood = self.likelihood_distribution.pdf(residual).sum(axis=1)
+        log_likelihood = self.likelihood_distribution.pdf(residual)
 
         return log_likelihood

@@ -6,19 +6,24 @@ particle_filter_args:
 
 prior_pars:
   type: 'uniform'
-  lower_bound: [10.0, 0.0]
-  upper_bound: [1990, 1.0]
+  lower_bound: [10.0, 1.0]
+  upper_bound: [990, 3.0]
   num_pars: 2
 
 model_type: 'neural_network'
 
 forward_model_args:
+  num_skip_steps: 4
+  step_size: 0.05
+  space_dim: 256
+  x_max: 1000
   model_args:
     AE_model_type: 'WAE'
     AE_model_path: 'single_phase/autoencoders/WAE'
     time_stepping_model_path: 'single_phase/time_steppers/transformer'
     preprocessor_path: 'single_phase/preprocessor.pkl'
     num_previous_steps: 16
+    phase: 'multi'
 
 observation_args:
   noise_variance: 0.00001

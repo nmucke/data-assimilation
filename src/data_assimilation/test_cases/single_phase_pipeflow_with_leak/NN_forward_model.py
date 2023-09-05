@@ -29,6 +29,8 @@ class NNForwardModel(BaseForwardModel):
         self.step_size = 0.05
         self.num_particles = num_particles
 
+        self.model_args = model_args
+
         self.device = device
 
         object_storage_client = ObjectStorageClientWrapper(
@@ -44,7 +46,8 @@ class NNForwardModel(BaseForwardModel):
             config=config,
             model_type=model_args['AE_model_type'],
             device=device,
-            )                     
+            )   
+        self.AE_model.eval()                  
         
         ##### load time stepping model #####
         state_dict, config = object_storage_client.get_model(
@@ -55,11 +58,15 @@ class NNForwardModel(BaseForwardModel):
             config=config,
             device=device,
         )
+        self.time_stepping_model.eval()
+
 
         ##### Load preoprocesser #####
         self.preprocesssor = object_storage_client.get_preprocessor(
             source_path=model_args['preprocessor_path'],
         )
+
+
 
     def update_params(self, params):
         pass
@@ -73,14 +80,14 @@ class NNForwardModel(BaseForwardModel):
             
     def initialize_state(self, pars):
 
-        state = np.load('data/single_phase_pipeflow_with_leak/initial_conditions/states.npz')
+        state = np.load(f'data/{self.model_args["phase"]}_phase_pipeflow_with_leak/initial_conditions/states.npz')
         state = state['data'][0:self.num_particles]
         state = torch.tensor(state, dtype=torch.float32, device=self.device)
 
         state = self.preprocesssor.transform_state(state, ensemble=True)
         state = self.AE_model.encode(state)
 
-        pars = np.load('data/single_phase_pipeflow_with_leak/initial_conditions/pars.npz')
+        pars = np.load('data/{self.model_args["phase"]}_phase_pipeflow_with_leak/initial_conditions/pars.npz')
         pars = pars['data'][0:self.num_particles]
         pars = torch.tensor(pars, dtype=torch.float32, device=self.device)
 

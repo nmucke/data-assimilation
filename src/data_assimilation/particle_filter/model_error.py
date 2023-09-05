@@ -54,7 +54,6 @@ class PDEModelError(BaseModelError):
 
         state_ensemble = state_ensemble.copy()
 
-        '''
         for i in range(self.num_states):
 
             noise = self.model_error_distributions[i].rvs(
@@ -64,15 +63,23 @@ class PDEModelError(BaseModelError):
             #        size=(state_ensemble.shape[0], state_ensemble.shape[2])
             #    )
 
-            state_ensemble[:, i, :] = state_ensemble[:, i, :] + noise#\
+            state_ensemble[:, i, :] = state_ensemble[:, i, :] + noise\
                 #self.model_error_distributions[i].rvs(
                 #    size=(state_ensemble.shape[0], state_ensemble.shape[2])
                 #)
-        '''
         return state_ensemble, pars_ensemble 
     
     def update(self, state_ensemble, pars_ensemble):
-        pass    
+
+        for i in range(self.num_states):
+
+            C = np.cov(state_ensemble[:, i].T)
+
+            self.covariance_matrices[i] = self.noise_variance[i]*C
+
+            self.model_error_distributions[i] = (
+                multivariate_normal(mean=np.zeros(self.space_dim), cov=self.covariance_matrices[i], allow_singular=True)
+            )
         
 class NeuralNetworkModelError(BaseModelError):
     def __init__(

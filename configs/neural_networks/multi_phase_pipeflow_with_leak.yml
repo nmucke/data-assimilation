@@ -1,0 +1,45 @@
+
+
+particle_filter_args:
+  num_particles: 5000
+  ESS_threshold: 0.5
+
+prior_pars:
+  type: 'uniform'
+  lower_bound: [10.0, 1.]
+  upper_bound: [4990, 2.]
+  num_pars: 2
+
+model_type: 'neural_network'
+
+forward_model_args:
+  num_skip_steps: 10
+  PDE_step_size: 0.01
+  space_dim: 512
+  x_max: 5000
+  batch_size: 512
+  num_PDE_states: 3
+  model_args:
+    AE_model_type: 'WAE'
+    AE_model_path: 'multi_phase/autoencoders/WAE_8_latent_0.0001_consistency_0.01_channels_128_layers_6_trans_layers_2_embedding_64_vit'
+    time_stepping_model_path: 'multi_phase/time_steppers/transformer'
+    preprocessor_path: 'multi_phase/preprocessor.pkl'
+    num_previous_steps: 32
+    phase: 'multi'
+
+observation_args:
+  noise_variance: 0.00001
+  observation_times: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3400, 3600]
+  full_time_points: [0, 180, 18000]
+
+observation_operator_args:
+  observation_state_ids: [1]
+  observation_space_ids: [50, 250, 450]
+  full_space_points: [0, 5000, 512]
+
+likelihood_args:
+  noise_variance: 0.0001
+
+model_error_args:
+  noise_variance: 0.0001
+  

@@ -158,6 +158,7 @@ class BaseParticleFilter(ABC):
     ):
         """Compute the filtered solution."""
 
+
         self.ESS_threshold = self.num_particles / 2
 
         weights = self._update_weights(restart=True)
@@ -166,6 +167,16 @@ class BaseParticleFilter(ABC):
             self._initialize_particles(pars=init_pars)
         
         t_old = 0      
+
+        if model_type == 'neural_network':
+            t_old = num_previous_steps * self.forward_model.step_size
+
+            if save_level == 1:
+                out_state_ensemble = [state_ensemble[:, :, 0]]
+                out_pars_ensemble = [pars_ensemble[:, :, 0]]
+            elif save_level == 2:
+                out_state_ensemble = [state_ensemble]
+                out_pars_ensemble = [pars_ensemble]
 
         pbar = tqdm.tqdm(
             enumerate(true_solution.observation_t_vec),
@@ -224,9 +235,7 @@ class BaseParticleFilter(ABC):
 
             # Compute the likelihood    
             likelihood = self.likelihood.compute_log_likelihood(
-                state=\
-                    prior_state_ensemble_transformed if model_type == 'PDE' else \
-                    prior_state_ensemble_transformed[:, :, :, -1], 
+                state=prior_state_ensemble_transformed, 
                 observations=true_solution.observations[:, i],
             )
 
@@ -250,13 +259,18 @@ class BaseParticleFilter(ABC):
                 posterior_state_ensemble = prior_state_ensemble
                 posterior_pars_ensemble = prior_pars_ensemble
             
+            print(f'ESS: {ESS}, threshold: {self.ESS_threshold}')
 
             '''
+            pdb.set_trace()
+
             lol = self.forward_model.transform_state(
                 posterior_state_ensemble[:, :, :, -1],
                 x_points=self.observation_operator.full_space_points,
                 pars=posterior_pars_ensemble[:, :, -1],
             )#.detach().numpy()
+
+            plot_weights = 3*weights/np.max(weights)
 
             plt.figure()
             for j in range(posterior_state_ensemble.shape[0]):
@@ -264,6 +278,7 @@ class BaseParticleFilter(ABC):
                 plt.plot(
                     np.linspace(0, 5000, 512),
                     lol[j, 1],
+                    linewidth=plot_weights[j],
                     )
             plt.plot(
                 np.linspace(0, 5000, 512),
@@ -271,7 +286,7 @@ class BaseParticleFilter(ABC):
                 '--', linewidth=3., color='black'
                 )    
             plt.plot(
-                [np.linspace(0, 5000, 512)[20], np.linspace(0, 5000, 512)[492]],
+                np.linspace(0, 5000, 512)[[50, 250, 450]],
                 true_solution.observations[:, i],
                 'o', color='black', markersize=5
             )
@@ -282,35 +297,57 @@ class BaseParticleFilter(ABC):
                 state_ensemble = torch.cat(
                     (state_ensemble, posterior_state_ensemble), 
                     dim=-1
-                    )
+                )
                 pars_ensemble = torch.cat(
-                    (pars_ensemble, posterior_pars_ensemble), 
+                    (
+                        pars_ensemble, 
+                        posterior_pars_ensemble if save_level == 0 or 1 else \
+                        posterior_pars_ensemble.repeat(1, 1, posterior_state_ensemble.shape[-1])
+                    ), 
                     dim=-1
-                    )
-            elif save_level == 2:
+                )
+            
+                if save_level == 1:
+                    out_state_ensemble.append(state_ensemble[:, :, -1])
+                    out_pars_ensemble.append(pars_ensemble[:, :, -1])
+
+                elif save_level == 2:
+                    out_state_ensemble.append(state_ensemble)
+                    out_pars_ensemble.append(pars_ensemble)
+
+            if model_type == 'PDE' and save_level == 2:
                 state_ensemble = np.concatenate(
                     (state_ensemble, posterior_state_ensemble), 
                     axis=-1
-                    )
+                )
                 pars_ensemble = np.concatenate(
                     (pars_ensemble, posterior_pars_ensemble), 
                     axis=-1
-                    )
-            elif save_level == 0:
+                )
+            if model_type == 'PDE' and  save_level == 0:
                 state_ensemble = posterior_state_ensemble[:, :, :, -1:]
                 pars_ensemble = posterior_pars_ensemble[:, :, -1:]
-            elif save_level == 1:
+            if model_type == 'PDE' and save_level == 1:
                 state_ensemble = np.concatenate(
                     (state_ensemble, posterior_state_ensemble[:, :, :, -1:]), 
                     axis=-1
-                    )
+                )
                 pars_ensemble = np.concatenate(
                     (pars_ensemble, posterior_pars_ensemble[:, :, -1:]), 
                     axis=-1
-                    )
+                )
                 
             t_old = t_new
 
+        if model_type == 'neural_network':
+            if save_level == 0:
+                return state_ensemble[:, :, :, -1], pars_ensemble[:, :, -1]
+            elif save_level == 1:
+                return torch.stack(out_state_ensemble, dim=-1), torch.stack(out_pars_ensemble, dim=-1)
+            elif save_level == 2:
+                return torch.cat(out_state_ensemble, dim=-1), torch.cat(out_pars_ensemble, dim=-1)
+
+        
         return state_ensemble, pars_ensemble
 
 
