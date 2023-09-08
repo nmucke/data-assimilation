@@ -7,6 +7,7 @@ import pdb
 from scipy.stats import norm, multivariate_normal
 import matplotlib.pyplot as plt
 from scipy.sparse import diags
+from torch.distributions.multivariate_normal import MultivariateNormal
 
 class PDEModelError(BaseModelError):
     def __init__(
@@ -47,7 +48,6 @@ class PDEModelError(BaseModelError):
         for i in range(self.num_states):
             self.model_error_distributions.append(
                 multivariate_normal(mean=np.zeros(space_dim), cov=self.covariance_matrices[i])
-                #norm(loc=0, scale=self.noise_variance[i])
             )
             
     def add_model_error(self, state_ensemble, pars_ensemble):
@@ -59,14 +59,9 @@ class PDEModelError(BaseModelError):
             noise = self.model_error_distributions[i].rvs(
                 size=state_ensemble.shape[0]
             )
-            #noise = self.model_error_distributions[i].rvs(
-            #        size=(state_ensemble.shape[0], state_ensemble.shape[2])
-            #    )
 
-            state_ensemble[:, i, :] = state_ensemble[:, i, :] + noise\
-                #self.model_error_distributions[i].rvs(
-                #    size=(state_ensemble.shape[0], state_ensemble.shape[2])
-                #)
+            state_ensemble[:, i, :] = state_ensemble[:, i, :] + noise
+
         return state_ensemble, pars_ensemble 
     
     def update(self, state_ensemble, pars_ensemble):
@@ -84,22 +79,64 @@ class PDEModelError(BaseModelError):
 class NeuralNetworkModelError(BaseModelError):
     def __init__(
         self, 
-        noise_variance: float,
+        state_noise_variance: float,
+        parameter_noise_variance: float,
+        latent_dim: int,
         **kwargs
         ):
         super().__init__(**kwargs)
 
-        self.noise_variance = noise_variance
+        self.state_noise_variance = state_noise_variance
+        self.parameter_noise_variance = torch.tensor(parameter_noise_variance)
+
+        self.counter = 0
+
+        self.num_params = len(self.parameter_noise_variance)
+
+        self.latent_dim = latent_dim
         
-        self.model_error_distribution = \
-            torch.distributions.normal.Normal(
-                loc=0, scale=self.noise_variance
+        self.state_error_distribution = \
+            MultivariateNormal(
+                loc=torch.zeros(self.latent_dim), covariance_matrix=self.state_noise_variance*torch.eye(self.latent_dim)
                 )
+        
+        self.parameter_covariance = torch.diag(self.parameter_noise_variance)        
+        self.parameter_error_distribution = \
+            MultivariateNormal(
+                loc=torch.zeros(self.num_params), covariance_matrix=self.parameter_covariance
+            )
 
     def add_model_error(self, state_ensemble, pars_ensemble):
+
+        state_ensemble = state_ensemble.clone()
+        state_noise = self.state_error_distribution.sample((state_ensemble.shape[0],))
+        state_ensemble[:, :, -1] = state_ensemble[:, :, -1]# + state_noise.to(state_ensemble.device)
+
+        pars_ensemble = pars_ensemble.clone()
+        parameter_noise = self.parameter_error_distribution.sample((pars_ensemble.shape[0],))
+        pars_ensemble[:, : , -1] = pars_ensemble[:, : , -1]# + parameter_noise.to(pars_ensemble.device)
+
         return state_ensemble, pars_ensemble 
     
     def update(self, state_ensemble, pars_ensemble):
-        pass    
+
+        self.counter += 1
+        
+        C = torch.cov(state_ensemble[:, :, -1].T)
+
+        self.state_covariance = self.state_noise_variance*C
+
+        self.state_error_distribution = \
+            MultivariateNormal(
+                loc=torch.zeros(self.latent_dim), covariance_matrix=self.state_covariance
+            )
+        
+        
+        self.parameter_covariance = 1/self.counter * torch.cov(pars_ensemble[:, :].T) + 1e-12*torch.eye(self.num_params)
+        self.parameter_error_distribution = \
+            MultivariateNormal(
+                loc=torch.zeros(self.num_params), covariance_matrix=self.parameter_covariance
+            )
+        
         
         

@@ -145,7 +145,7 @@ class NNForwardModel(BaseForwardModel):
         
         pars = np.load(f'data/{self.model_args["phase"]}_phase_pipeflow_with_leak/initial_conditions/pars.npz')
         pars = pars['data'][0:self.num_particles]
-        pars = torch.tensor(pars, dtype=torch.float32, device=self.device)
+        pars = torch.tensor(pars, dtype=torch.float32)#, device=self.device)
 
         pars = self.preprocesssor.transform_pars(pars, ensemble=True)
 

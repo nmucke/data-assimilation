@@ -1,6 +1,7 @@
 import numpy as np
 import pdb
 import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
 
 from data_assimilation.true_solution import TrueSolution
 from data_assimilation.oracle import ObjectStorageClientWrapper
@@ -109,9 +110,30 @@ def plot_parameter_results(
     save_path: str,
     object_storage_client: ObjectStorageClientWrapper = None 
 ):
+    
+    leak_location_preds = pars_ensemble[:, 0, -1]
+    leak_size_preds = pars_ensemble[:, 1, -1]
+
+    # get KDE approximations for plotting
+    kde_leak_location = gaussian_kde(leak_location_preds)
+    kde_leak_size = gaussian_kde(leak_size_preds)
+
+    x_vec_leak_location = np.linspace(
+        leak_location_preds.min()-200, 
+        leak_location_preds.max()+200, 
+        1000
+    )
+
+    x_vec_leak_size = np.linspace(
+        leak_size_preds.min()-0.1,
+        leak_size_preds.max()+0.1, 
+        1000
+    )
+    
 
     plt.figure()
-    plt.hist(pars_ensemble[:, 0, -1], bins=50)
+    plt.hist(leak_location_preds, bins=50, density=True, color='tab:blue', alpha=0.5)
+    plt.plot(x_vec_leak_location, kde_leak_location(x_vec_leak_location), color='tab:blue', linewidth=2.)
     plt.axvline(x=true_solution.pars[0], color='black', linewidth=3.)
     if object_storage_client is not None:
         with object_storage_client.fs.open(f'{object_storage_client.bucket_name}@{object_storage_client.namespace}/{save_path}/leak_location.png', 'wb') as f:
@@ -121,8 +143,9 @@ def plot_parameter_results(
     plt.close()
 
     plt.figure()
-    plt.hist(pars_ensemble[:, 1, -1], bins=50)
-    plt.axvline(x=true_solution.pars[1], color='black', linewidth=3.)
+    plt.hist(leak_size_preds, bins=50, density=True, color='tab:blue', alpha=0.5)
+    plt.plot(x_vec_leak_size, kde_leak_size(x_vec_leak_size), color='tab:blue', linewidth=2.)
+    plt.axvline(x=true_solution.pars[1], color='tab:blue', linewidth=3.)
     if object_storage_client is not None:
         with object_storage_client.fs.open(f'{object_storage_client.bucket_name}@{object_storage_client.namespace}/{save_path}/leak_size.png', 'wb') as f:
             plt.savefig(f)

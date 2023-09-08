@@ -165,7 +165,6 @@ class BaseParticleFilter(ABC):
 
         state_ensemble, pars_ensemble = \
             self._initialize_particles(pars=init_pars)
-        
         t_old = 0      
 
         if model_type == 'neural_network':

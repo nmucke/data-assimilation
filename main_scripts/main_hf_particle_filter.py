@@ -36,11 +36,11 @@ torch.backends.cuda.matmul.allow_tf32 = True
 
 PHASE = 'multi'
 
-MODEL_TYPE = 'neural_network'
+MODEL_TYPE = 'PDE'
 TEST_CASE = f'{PHASE}_phase_pipeflow_with_leak'
 TRUE_SOLUTION_PATH = f'data/{TEST_CASE}/test'
 
-DISTRIBUTED = False
+DISTRIBUTED = True
 NUM_WORKERS = 25
 
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
@@ -125,6 +125,7 @@ def main():
         # Initialize model error.
         model_error = NeuralNetworkModelError(
             **config['model_error_args'],
+            latent_dim=forward_model.latent_dim,
         )
 
     elif config['model_type'] == 'PDE':
