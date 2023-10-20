@@ -12,10 +12,13 @@ class ObservationOperator(BaseObservationOperator):
         observation_state_ids: list,
         observation_space_ids: list,
         full_space_points: list = None,
+        backend: str = 'numpy',
         **kwargs
         ) -> None:
             
         super().__init__(**kwargs)
+
+        self.backend = backend
 
         self.observation_space_ids = observation_space_ids
         self.observation_state_ids = observation_state_ids

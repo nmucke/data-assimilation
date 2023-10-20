@@ -73,7 +73,7 @@ class BaseLikelihood(ABC):
         super().__init__()
 
     @abstractmethod
-    def compute_log_likelihood(
+    def compute_likelihood(
         self, 
         observations, 
         state, 
@@ -90,9 +90,12 @@ class BaseParticleFilter(ABC):
         observation_operator: BaseObservationOperator,
         likelihood: BaseLikelihood,
         model_error: BaseModelError,
+        backend: str = 'numpy',
         ) -> None:
         
         super().__init__()
+
+        self.backend = backend
 
         self.num_particles = particle_filter_args['num_particles']
         self.ESS_threshold = particle_filter_args['ESS_threshold']
@@ -103,32 +106,17 @@ class BaseParticleFilter(ABC):
         self.model_error = model_error
 
     @abstractmethod
-    def _update_weights(self, **kwargs):
+    def _get_posterior(self, **kwargs):
         """Update the weights of the particles."""
         raise NotImplementedError
     
-    @abstractmethod
-    def _initialize_particles(self, **kwargs):
-        """Initialize the particles."""
-        raise NotImplementedError
-
-    def _resample(
-        self, 
-        state_ensemble, 
-        pars_ensemble, 
-        weights
-        ):
+    def _initialize_particles(self, pars=None, **kwargs):
         
-        resampled_ids = np.random.multinomial(
-            n=self.num_particles,
-            pvals=weights,
-        )
-        indeces = np.repeat(
-            np.arange(self.num_particles),
-            resampled_ids
+        state_ensemble, pars_ensemble = self.forward_model.initialize_state(
+            pars=pars
         )
 
-        return state_ensemble[indeces], pars_ensemble[indeces]
+        return state_ensemble, pars_ensemble
     
 
     def _compute_prior_particles(
@@ -159,12 +147,13 @@ class BaseParticleFilter(ABC):
         """Compute the filtered solution."""
 
 
+        '''
         self.ESS_threshold = self.num_particles / 2
 
         weights = self._update_weights(restart=True)
+        '''
 
-        state_ensemble, pars_ensemble = \
-            self._initialize_particles(pars=init_pars)
+        state_ensemble, pars_ensemble = self._initialize_particles(pars=init_pars)
         t_old = 0      
 
         if model_type == 'neural_network':
@@ -181,7 +170,7 @@ class BaseParticleFilter(ABC):
             enumerate(true_solution.observation_t_vec),
             total=true_solution.observation_t_vec.shape[0],
             bar_format = "{desc}: {percentage:.2f}%|{bar:20}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}]"#
-            )                         
+            )                 
         for i, t_new in pbar:
 
             # Update the model error distribution
@@ -200,16 +189,6 @@ class BaseParticleFilter(ABC):
                 pars_ensemble=pars_ensemble[:, :, -1:],
             )
 
-            '''
-            for i in range(3):
-                plt.figure()
-                plt.plot(prior_state_ensemble[0, i, :])
-                plt.plot(state_ensemble[0, i, :, -1])
-                plt.show()
-
-            pdb.set_trace()
-            '''
-            
             # Compute the prior particles
             prior_state_ensemble, t_vec = self._compute_prior_particles(
                 state_ensemble=\
@@ -219,6 +198,8 @@ class BaseParticleFilter(ABC):
                 t_range=[t_old, t_new],
             )
 
+            '''
+
             if transform_state:
                 prior_state_ensemble_transformed = self.forward_model.transform_state(
                     state=\
@@ -226,6 +207,7 @@ class BaseParticleFilter(ABC):
                         prior_state_ensemble[:, :, -1:],
                     x_points=self.observation_operator.full_space_points,
                     pars=prior_pars_ensemble[:, :, -1],
+                    numpy=True if model_type == 'PDE' else False,
                 )
             else:
                 prior_state_ensemble_transformed = \
@@ -233,17 +215,29 @@ class BaseParticleFilter(ABC):
                     prior_state_ensemble[:, :, -1],
 
             # Compute the likelihood    
-            likelihood = self.likelihood.compute_log_likelihood(
+            likelihood = self.likelihood.compute_likelihood(
                 state=prior_state_ensemble_transformed, 
                 observations=true_solution.observations[:, i],
             )
+            '''
 
+            posterior_state_ensemble, posterior_pars_ensemble = \
+                self._get_posterior(
+                    prior_state_ensemble=prior_state_ensemble,
+                    prior_pars_ensemble=prior_pars_ensemble,
+                    likelihood_function=self.likelihood.compute_likelihood,
+                    transform_state_function=self.forward_model.transform_state,
+                    observations=true_solution.observations[:, i],
+                )
+
+            '''
             # Update the particle weights
             weights, ESS = self._update_weights(
                 likelihood=likelihood,
                 weights=weights,
             )
-
+            
+            print(f'ESS: {ESS:0.2f}, threshold: {self.ESS_threshold}')
             if ESS < self.ESS_threshold:
                 posterior_state_ensemble, posterior_pars_ensemble = \
                     self._resample(
@@ -258,34 +252,34 @@ class BaseParticleFilter(ABC):
                 posterior_state_ensemble = prior_state_ensemble
                 posterior_pars_ensemble = prior_pars_ensemble
             
-            print(f'ESS: {ESS}, threshold: {self.ESS_threshold}')
-
             '''
-            pdb.set_trace()
+            
+            '''
+            #print(f'ESS: {ESS}, threshold: {self.ESS_threshold}')
 
             lol = self.forward_model.transform_state(
-                posterior_state_ensemble[:, :, :, -1],
+                posterior_state_ensemble[:, :, :, -1] if model_type == 'PDE' else \
+                    posterior_state_ensemble[:, :, -1:],
                 x_points=self.observation_operator.full_space_points,
                 pars=posterior_pars_ensemble[:, :, -1],
             )#.detach().numpy()
-
-            plot_weights = 3*weights/np.max(weights)
-
+            #plot_weights = 3*weights/np.max(weights + 1e-10)
+            
             plt.figure()
             for j in range(posterior_state_ensemble.shape[0]):
                 
                 plt.plot(
-                    np.linspace(0, 5000, 512),
-                    lol[j, 1],
-                    linewidth=plot_weights[j],
-                    )
+                    np.linspace(0, 40, 40),
+                    lol[j, 0],
+                    #linewidth=plot_weights[j],
+                )
             plt.plot(
-                np.linspace(0, 5000, 512),
-                true_solution.state[1, :, true_solution.observation_times[i]], 
+                np.linspace(0, 40, 40),
+                true_solution.state[0, :, true_solution.observation_times[i]], 
                 '--', linewidth=3., color='black'
-                )    
+            )    
             plt.plot(
-                np.linspace(0, 5000, 512)[[50, 250, 450]],
+                np.linspace(0, 40, 40)[[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38]],
                 true_solution.observations[:, i],
                 'o', color='black', markersize=5
             )
@@ -340,7 +334,7 @@ class BaseParticleFilter(ABC):
 
         if model_type == 'neural_network':
             if save_level == 0:
-                return state_ensemble[:, :, :, -1], pars_ensemble[:, :, -1]
+                return state_ensemble[:, :, -1:], pars_ensemble[:, :, -1:]
             elif save_level == 1:
                 return torch.stack(out_state_ensemble, dim=-1), torch.stack(out_pars_ensemble, dim=-1)
             elif save_level == 2:

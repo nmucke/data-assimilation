@@ -2,6 +2,7 @@
 
 
 import pdb
+from scipy.io import loadmat
 
 import numpy as np
 import torch
@@ -103,7 +104,6 @@ class NNForwardModel(BaseForwardModel):
     
                 out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
 
-        #state = self.AE_model.decode(state, pars)
         out_state = self.preprocesssor.inverse_transform_state(out_state, ensemble=True)
 
         return out_state.squeeze(-1).detach().numpy()
@@ -114,7 +114,7 @@ class NNForwardModel(BaseForwardModel):
         pars = self.preprocesssor.inverse_transform_pars(pars, ensemble=True)
 
         return pars.cpu().detach().numpy()
-            
+             
     def initialize_state(self, pars):
 
         state = np.zeros(
@@ -151,12 +151,15 @@ class NNForwardModel(BaseForwardModel):
                 
                 out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
         
+
         pars = torch.tensor(pars, dtype=torch.float32)#, device=self.device)
 
         pars = self.preprocesssor.transform_pars(pars, ensemble=True)
 
         pars = pars.unsqueeze(-1)
         pars = pars.repeat(1, 1, state.shape[-1])
+
+
 
         return out_state, pars
 

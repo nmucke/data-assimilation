@@ -1,8 +1,16 @@
 
 
 particle_filter_args:
-  num_particles: 2500
+  num_particles: 1000
   ESS_threshold: 0.5
+
+
+plotting_args:
+  states_to_plot: [0, 1, 2]
+  state_names: ['Hold up', 'Pressure', 'Velocity']
+  pars_to_plot: [0, 1]
+  par_names: ['Leak location', 'Leak size']
+
 
 prior_pars:
   type: 'uniform'
@@ -19,6 +27,8 @@ forward_model_args:
   x_max: 5000
   batch_size: 512
   num_PDE_states: 3
+  num_pars: 2
+  initial_condition_path: data/multi_phase_pipeflow_with_leak/initial_conditions
   model_args:
     AE_model_type: 'WAE'
     AE_model_path: 'multi_phase/autoencoders/WAE_8_latent_0.0001_consistency_0.01_channels_128_layers_6_trans_layers_2_embedding_64_vit'
@@ -38,14 +48,16 @@ observation_args:
                       #8000, 8200, 8400, 8600, 8800, 9000, 9200, 9400, 9600, 9800, 10000, 10200, 10400, 10600, 10800, 11000, 11200,]
   
   full_time_points: [0, 180, 18000]
+  #full_time_points: [0, 180, 18000]
 
 observation_operator_args:
-  observation_state_ids: [1]
-  observation_space_ids: [10, 250, 500]
+  observation_state_ids: [2]
+  #observation_space_ids: [10, 250, 500]
+  observation_space_ids: [10, 50, 100, 250, 300, 350, 400, 450, 500]
   full_space_points: [0, 5000, 512]
 
 likelihood_args:
-  noise_variance: 1.0e-4
+  noise_variance: 1.0e-2
 
 model_error_args:
   state_noise_variance: 0.0001

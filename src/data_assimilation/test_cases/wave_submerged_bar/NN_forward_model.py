@@ -2,6 +2,7 @@
 
 
 import pdb
+from scipy.io import loadmat
 
 import numpy as np
 import torch
@@ -87,26 +88,28 @@ class NNForwardModel(BaseForwardModel):
     def update_params(self, params):
         pass
     
-    def transform_state(self, state, x_points, pars):
+    def transform_state(self, state, x_points, pars, numpy=False):
 
         out_state = torch.zeros(
             (self.num_particles, self.num_PDE_states, self.space_dim, 1),
             dtype=torch.float32,
         )
-        with torch.no_grad():
-            for batch_idx in range(0, self.num_particles, self.batch_size):
-                    
-                batch_state = state[batch_idx:batch_idx+self.batch_size].to(self.device)
-                batch_pars = pars[batch_idx:batch_idx+self.batch_size].to(self.device)
-    
-                batch_state = self.AE_model.decode(batch_state, batch_pars)
-    
-                out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
+        #with torch.no_grad():
+        for batch_idx in range(0, self.num_particles, self.batch_size):
+                
+            batch_state = state[batch_idx:batch_idx+self.batch_size].to(self.device)
+            batch_pars = pars[batch_idx:batch_idx+self.batch_size].to(self.device)
 
-        #state = self.AE_model.decode(state, pars)
+            batch_state = self.AE_model.decode(batch_state, batch_pars)
+
+            out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
+
         out_state = self.preprocesssor.inverse_transform_state(out_state, ensemble=True)
 
-        return out_state.squeeze(-1).detach().numpy()
+        if numpy:
+            return out_state.squeeze(-1).detach().numpy()
+        else:
+            return out_state.squeeze(-1)
     
 
     def transform_pars(self, pars):
@@ -127,12 +130,15 @@ class NNForwardModel(BaseForwardModel):
         )
         for i in range(self.num_particles):
             
-            state_i = np.load(f'{self.initial_condition_path}/state/sample_{i}.npz')
-            state_i = state_i['data'][:, :, -self.num_previous_steps:]
-            state[i] = state_i
+            #state_i = np.load(f'{self.initial_condition_path}/state/sample_{i}.npz')
+            #state_i = state_i['data'][:, :, -self.num_previous_steps:]
 
-            pars_i = np.load(f'{self.initial_condition_path}/pars/sample_{i}.npz')
-            pars[i] = pars_i['data']
+            state_i = loadmat(f'{self.initial_condition_path}/state/sample_{i}.mat')['state']
+            state[i] = state_i[:, :, 0:self.num_previous_steps]
+
+            #pars_i = np.load(f'{self.initial_condition_path}/pars/sample_{i}.npz')
+            pars_i = loadmat(f'{self.initial_condition_path}/pars/sample_{i}.mat')['pars'][0]
+            pars[i] = pars_i#['data']
 
         state = torch.tensor(state, dtype=torch.float32)
 
@@ -142,14 +148,14 @@ class NNForwardModel(BaseForwardModel):
             (self.num_particles, self.latent_dim, self.num_previous_steps),
             dtype=torch.float32,
         )
-        with torch.no_grad():
-            for batch_idx in range(0, self.num_particles, self.batch_size):
+        #with torch.no_grad():
+        for batch_idx in range(0, self.num_particles, self.batch_size):
 
-                batch_state = state[batch_idx:batch_idx+self.batch_size].to(self.device)
+            batch_state = state[batch_idx:batch_idx+self.batch_size].to(self.device)
 
-                batch_state = self.AE_model.encode(batch_state)
-                
-                out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
+            batch_state = self.AE_model.encode(batch_state)
+            
+            out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
         
         pars = torch.tensor(pars, dtype=torch.float32)#, device=self.device)
 

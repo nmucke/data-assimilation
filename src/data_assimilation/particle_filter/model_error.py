@@ -110,15 +110,17 @@ class NeuralNetworkModelError(BaseModelError):
 
         state_ensemble = state_ensemble.clone()
         state_noise = self.state_error_distribution.sample((state_ensemble.shape[0],))
-        state_ensemble[:, :, -1] = state_ensemble[:, :, -1]# + state_noise.to(state_ensemble.device)
+        state_ensemble[:, :, -1] = state_ensemble[:, :, -1] + state_noise.to(state_ensemble.device)
 
         pars_ensemble = pars_ensemble.clone()
-        parameter_noise = self.parameter_error_distribution.sample((pars_ensemble.shape[0],))
-        pars_ensemble[:, : , -1] = pars_ensemble[:, : , -1]# + parameter_noise.to(pars_ensemble.device)
+        #parameter_noise = self.parameter_error_distribution.sample((pars_ensemble.shape[0],))
+        #pars_ensemble[:, : , -1] = pars_ensemble[:, : , -1]# + parameter_noise.to(pars_ensemble.device)
 
         return state_ensemble, pars_ensemble 
     
     def update(self, state_ensemble, pars_ensemble):
+        pass
+        '''
 
         self.counter += 1
         
@@ -137,6 +139,6 @@ class NeuralNetworkModelError(BaseModelError):
             MultivariateNormal(
                 loc=torch.zeros(self.num_params), covariance_matrix=self.parameter_covariance
             )
-        
+        '''
         
         

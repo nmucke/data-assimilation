@@ -4,6 +4,12 @@ particle_filter_args:
   num_particles: 1500
   ESS_threshold: 0.5
 
+plotting_args:
+  states_to_plot: [0, 1, 2]
+  state_names: ['Hold up', 'Pressure', 'Velocity']
+  pars_to_plot: [0, 1]
+  par_names: ['Leak location', 'Leak size']
+
 prior_pars:
   type: 'uniform'
   lower_bound: [10.0, 1.]

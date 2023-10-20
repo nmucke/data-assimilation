@@ -1,0 +1,40 @@
+
+
+particle_filter_args:
+  num_particles: 250
+  ESS_threshold: 0.5
+
+plotting_args:
+  states_to_plot: [0, 1, 2]
+  state_names: ['Hold up', 'Pressure', 'Velocity']
+  pars_to_plot: [0, 1]
+  par_names: ['Leak location', 'Leak size']
+
+prior_pars:
+  type: 'uniform'
+  lower_bound: [6.0]
+  upper_bound: [9.0]
+  num_pars: 1
+
+model_type: 'PDE'
+
+forward_model_args:
+  model_args:
+    N: 40
+   
+observation_args:
+  noise_variance: 0.2
+  observation_times: [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3400]
+  full_time_points: [0, 180, 3600]
+
+observation_operator_args:
+  observation_state_ids: [0]
+  observation_space_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38]
+  full_space_points: [0, 40, 40]
+
+likelihood_args:
+  noise_variance: 0.2
+
+model_error_args:
+  noise_variance: [1.0e-6]
+  
