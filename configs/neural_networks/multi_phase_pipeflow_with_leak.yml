@@ -19,6 +19,7 @@ prior_pars:
   num_pars: 2
 
 model_type: 'neural_network'
+backend: 'torch'
 
 forward_model_args:
   num_skip_steps: 10

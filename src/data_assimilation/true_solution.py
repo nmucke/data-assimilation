@@ -33,7 +33,6 @@ class TrueSolution():
         if observation_file is not None:
             observations_file = pd.read_csv(observation_file, index_col=0).values
 
-
         self.num_observation_times = len(self.observation_times)
 
         self.full_t_vec = np.linspace(

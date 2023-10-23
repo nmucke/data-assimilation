@@ -32,13 +32,14 @@ class ObservationOperator(BaseObservationOperator):
                 full_space_points[2]
             )
             
-            self.x_observation_points = self.full_space_points[self.observation_space_ids]            
+            self.x_observation_points = self.full_space_points[self.observation_space_ids]
 
     def get_observations(self, state, ensemble=False):
         """Compute the observations."""
 
         if ensemble:
-            return state[:, 
+            return state[
+                :, 
                 self.observation_state_ids*self.num_observations, 
                 self.observation_space_ids
                 ]

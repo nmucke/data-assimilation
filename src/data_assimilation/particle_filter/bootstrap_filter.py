@@ -93,7 +93,7 @@ class BootstrapFilter(BaseParticleFilter):
             likelihood=likelihood,
         )
         
-        print(f'ESS: {self.ESS:0.2f}, threshold: {self.ESS_threshold}')
+        #print(f'ESS: {self.ESS:0.2f}, threshold: {self.ESS_threshold}')
         if self.ESS < self.ESS_threshold:
             posterior_state_ensemble, posterior_pars_ensemble = \
                 self._resample(

@@ -27,7 +27,7 @@ def plot_state_variable(
         color='tab:blue',
     )
     if state_obs is not None:
-        plt.scatter(x_obs_vec, state_obs, color='black', s=40)
+        plt.plot(x_obs_vec, state_obs, '.', color='tab:red', markersize=15)#, s=40)
     plt.grid()
 
 def plot_state_results(
@@ -37,13 +37,6 @@ def plot_state_results(
     object_storage_client: ObjectStorageClientWrapper = None,
     plotting_args: dict = None,
 ):
-    '''
-    if phase == 'multi':
-        pressure_obs = True if 1 in true_solution.observation_operator.observation_state_ids else False
-
-    else:
-        pressure_obs = True if 0 in true_solution.observation_operator.observation_state_ids else False
-    '''
 
     obs = true_solution.observations[:, -1]
 
@@ -61,8 +54,8 @@ def plot_state_results(
             state_std=state_std[state_idx, :, -1],
             true_state=true_solution.state[state_idx, :, true_solution.observation_times[-1]],
             save_path=save_path_i,
-            #x_obs_vec=x_obs_vec,
-            #state_obs=obs if pressure_obs else None,
+            x_obs_vec=x_obs_vec,
+            state_obs=obs
         )
 
         if object_storage_client is not None:

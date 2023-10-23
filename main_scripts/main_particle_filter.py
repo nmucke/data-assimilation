@@ -29,6 +29,7 @@ from data_assimilation.particle_filter.observation_operator import (
 )
 from data_assimilation.true_solution import TrueSolution
 from data_assimilation.utils import create_directory
+from data_assimilation.particle_filter.NN_forward_model import NNForwardModel
 
 torch.set_default_dtype(torch.float32)
 
@@ -55,11 +56,11 @@ BUCKET_NAME = 'data_assimilation_results'
 
 SAVE_LEVEL = 0
 
-if MODEL_TYPE == 'neural_network':
-    NNForwardModel = importlib.import_module(
-        f'data_assimilation.test_cases.{TEST_CASE}.NN_forward_model'
-    ).NNForwardModel
-elif MODEL_TYPE == 'PDE':
+#if MODEL_TYPE == 'neural_network':
+#    NNForwardModel = importlib.import_module(
+#        f'data_assimilation.test_cases.{TEST_CASE}.NN_forward_model'
+#    ).NNForwardModel
+if MODEL_TYPE == 'PDE':
     PDEForwardModel = importlib.import_module(
         f'data_assimilation.test_cases.{TEST_CASE}.PDE_forward_model'
     ).PDEForwardModel
@@ -78,7 +79,6 @@ elif SAVE_LOCAL_OR_ORACLE == 'oracle':
 
 
 def main():
-
 
 
     # Initialize observation operator

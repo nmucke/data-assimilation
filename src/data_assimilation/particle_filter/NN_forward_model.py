@@ -121,27 +121,19 @@ class NNForwardModel(BaseForwardModel):
         pass
     
     def transform_state(self, state, x_points, pars, numpy=False):
-        dataset = TensorDataset(state, pars)
-        loader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=0,
-        )
-
         out_state = torch.zeros(
             (self.num_particles, self.num_PDE_states, self.space_dim, 1),
             dtype=torch.float32,
         )
 
-        for batch_idx, (batch_state, batch_pars) in enumerate(loader):
+        for batch_idx in range(0, self.num_particles, self.batch_size):
             
-            batch_state = batch_state.to(self.device)
-            batch_pars = batch_pars.to(self.device)
+            batch_state = state[batch_idx:batch_idx+self.batch_size].to(self.device)
+            batch_pars = pars[batch_idx:batch_idx+self.batch_size].to(self.device)
 
             batch_state = self.AE_model.decode(batch_state, batch_pars)
 
-            out_state[batch_idx*self.batch_size:batch_idx*self.batch_size+self.batch_size] = batch_state.cpu()
+            out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
 
         out_state = self.preprocesssor.inverse_transform_state(out_state, ensemble=True)
 
@@ -169,7 +161,7 @@ class NNForwardModel(BaseForwardModel):
             initial_condition_dataset,
             batch_size=self.batch_size,
             shuffle=False,
-            num_workers=0,
+            num_workers=4,
         )
 
         out_state = torch.zeros(
@@ -242,31 +234,25 @@ class NNForwardModel(BaseForwardModel):
         return out_state, pars
 
     def compute_forward_model(self, state_ensemble, pars_ensemble, t_range):
+        
 
         output_seq_len = int((t_range[-1] - t_range[0]) // self.step_size)
 
-        sol = torch.zeros(
+        out_state = torch.zeros(
             (self.num_particles, self.latent_dim, output_seq_len),
         )
 
         with torch.no_grad():
             for batch_idx in range(0, self.num_particles, self.batch_size):
-
-                batch_state_ensemble = state_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
-                batch_pars_ensemble = pars_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
+                batch_state = state_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
+                batch_pars = pars_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
 
                 batch_state_ensemble = self.time_stepping_model.multistep_prediction(
-                    input=batch_state_ensemble, 
-                    pars=batch_pars_ensemble, 
+                    input=batch_state, 
+                    pars=batch_pars, 
                     output_seq_len=output_seq_len,
                 )
 
-                sol[batch_idx:batch_idx+self.batch_size] = batch_state_ensemble.cpu()
+                out_state[batch_idx:batch_idx+self.batch_size] = batch_state_ensemble.cpu()
 
-        #sol = self.time_stepping_model.multistep_prediction(
-        #    input=state_ensemble, 
-        #    pars=pars_ensemble, 
-        #    output_seq_len=output_seq_len,
-        #    )
-                
-        return sol, output_seq_len*self.step_size
+        return out_state, output_seq_len*self.step_size
