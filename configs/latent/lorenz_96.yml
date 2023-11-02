@@ -1,0 +1,58 @@
+
+
+particle_filter_args:
+  num_particles: 15000
+  ESS_threshold: 0.5
+
+
+plotting_args:
+  states_to_plot: [0]
+  state_names: ['State']
+  pars_to_plot: [0]
+  par_names: ['Forcing']
+
+prior_pars:
+  type: 'uniform'
+  lower_bound: [7.0]
+  upper_bound: [9.0]
+  num_pars: 1
+
+model_type: 'neural_network'
+
+forward_model_args:
+  num_skip_steps: 1
+  PDE_step_size: 0.01
+  space_dim: 40
+  x_max: 40
+  batch_size: 512
+  num_PDE_states: 1
+  num_pars: 1
+  initial_condition_path: data/lorenz_96/initial_conditions
+  model_args:
+    AE_model_type: WAE
+    AE_model_path: lorenz_phase/autoencoders/WAE_16_latent_0.001_consistency_0.01_channels_64_layers_3_trans_layers_1_embedding_64_vit
+    time_stepping_model_path: lorenz_phase/time_steppers/transformer
+    preprocessor_path: lorenz_phase/preprocessor.pkl
+    num_previous_steps: 64
+    phase: lorenz
+
+observation_args:
+  noise_variance: 5.0e-6
+  observation_times: [66, 80, 1]
+  full_time_points: [0, 20, 2000]
+
+observation_operator_args:
+  observation_state_ids: [0]
+  #observation_space_ids: [1, 10, 30]
+  #observation_space_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+  observation_space_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38]
+  full_space_points: [0, 40, 40]
+
+likelihood_args:
+  noise_variance: 1.0e-2
+  multivariate: False
+
+model_error_args:
+  state_noise_variance: 1.0e-3
+  parameter_noise_variance: [0.000001]
+  

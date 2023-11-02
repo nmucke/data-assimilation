@@ -6,6 +6,7 @@ import pdb
 import numpy as np
 from matplotlib import pyplot as plt
 import torch
+from data_assimilation.particle_filter.NN_forward_model import NNForwardModel
 from data_assimilation.particle_filter.stein_filter import SteinFilter
 
 from data_assimilation.plotting_utils import (
@@ -16,20 +17,17 @@ from data_assimilation.oracle import ObjectStorageClientWrapper
 from data_assimilation.particle_filter.bootstrap_filter import BootstrapFilter
 from data_assimilation.particle_filter.model_error import (
     PDEModelError,
-    NeuralNetworkModelError,
+    LatentModelError,
 )
 from data_assimilation.particle_filter.likelihood import (
-    #NeuralNetworkLikelihood, 
     Likelihood
 )
 from data_assimilation.particle_filter.observation_operator import (
-    #PDEObservationOperator,
-    #LatentObservationOperator,
     ObservationOperator
 )
 from data_assimilation.true_solution import TrueSolution
 from data_assimilation.utils import create_directory
-from data_assimilation.particle_filter.NN_forward_model import NNForwardModel
+from data_assimilation.particle_filter.latent_forward_model import LatentForwardModel
 
 torch.set_default_dtype(torch.float32)
 
@@ -37,15 +35,17 @@ torch.backends.cuda.enable_flash_sdp(enabled=True)
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_tf32 = True
 
-PHASE = 'wave'
-TEST_CASE = 'wave_submerged_bar'#'lorenz_96'#'multi_phase_pipeflow_with_leak'#
+particle_filter_type = 'bootstrap'
 
-MODEL_TYPE = 'neural_network'
+PHASE = 'multi'
+TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#
 
-DISTRIBUTED = False
+MODEL_TYPE = 'PDE'
+
+DISTRIBUTED = True
 NUM_WORKERS = 25
 
-TEST_DATA_FROM_ORACLE_OR_LOCAL = 'local'
+TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle'
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
 LOCAL_PATH = f'data/{TEST_CASE}/test'
 
@@ -56,30 +56,25 @@ BUCKET_NAME = 'data_assimilation_results'
 
 SAVE_LEVEL = 0
 
-#if MODEL_TYPE == 'neural_network':
-#    NNForwardModel = importlib.import_module(
-#        f'data_assimilation.test_cases.{TEST_CASE}.NN_forward_model'
-#    ).NNForwardModel
 if MODEL_TYPE == 'PDE':
     PDEForwardModel = importlib.import_module(
         f'data_assimilation.test_cases.{TEST_CASE}.PDE_forward_model'
     ).PDEForwardModel
 
 # Load config file.
-CONFIG_PATH = f'configs/{MODEL_TYPE}s/{TEST_CASE}.yml'
+CONFIG_PATH = f'configs/{MODEL_TYPE}/{TEST_CASE}.yml'
 with open(CONFIG_PATH, 'r') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 if SAVE_LOCAL_OR_ORACLE == 'local':
-    LOCAL_SAVE_PATH = f'results/{TEST_CASE}_{config["particle_filter_args"]["num_particles"]}'
+    LOCAL_SAVE_PATH = f'results/{TEST_CASE}_{MODEL_TYPE}_{config["particle_filter_args"]["num_particles"]}'
     create_directory(LOCAL_SAVE_PATH)
     
 elif SAVE_LOCAL_OR_ORACLE == 'oracle':
-    ORACLE_SAVE_PATH = f'{TEST_CASE}_{config["particle_filter_args"]["num_particles"]}'
+    ORACLE_SAVE_PATH = f'{TEST_CASE}_{MODEL_TYPE}_{config["particle_filter_args"]["num_particles"]}'
 
 
 def main():
-
 
     # Initialize observation operator
     observation_operator = ObservationOperator(
@@ -87,7 +82,7 @@ def main():
             backend=config['backend'],
         )
     
-    test_case_index = 0
+    test_case_index = 4
 
     # Initialize true solution.
     if TEST_DATA_FROM_ORACLE_OR_LOCAL == 'oracle':
@@ -116,7 +111,23 @@ def main():
         **config['observation_args'],
     )
 
-    if config['model_type'] == 'neural_network':
+    if config['model_type'] == 'latent':
+        
+        # Initialize forward model.
+        forward_model = LatentForwardModel(
+            **config['forward_model_args'],
+            distributed=DISTRIBUTED,
+            device=DEVICE,
+            num_particles=config['particle_filter_args']['num_particles'],
+        )
+        
+        # Initialize model error.
+        model_error = LatentModelError(
+            **config['model_error_args'],
+            latent_dim=forward_model.latent_dim,
+        )
+
+    elif config['model_type'] == 'FNO':
 
         # Initialize forward model.
         forward_model = NNForwardModel(
@@ -127,9 +138,9 @@ def main():
         )
         
         # Initialize model error.
-        model_error = NeuralNetworkModelError(
+        model_error = PDEModelError(
             **config['model_error_args'],
-            latent_dim=forward_model.latent_dim,
+            space_dim=config['forward_model_args']['space_dim']
         )
 
     elif config['model_type'] == 'PDE':
@@ -156,43 +167,35 @@ def main():
         **config['likelihood_args'],
     )
 
-    # Initialize particle filter.
-    particle_filter = BootstrapFilter(
-        particle_filter_args=config['particle_filter_args'],
-        forward_model=forward_model,
-        observation_operator=observation_operator,
-        likelihood=likelihood,
-        model_error=model_error,
-        backend=config['backend'],
-    )
-    '''
-    particle_filter = SteinFilter(
-        particle_filter_args=config['particle_filter_args'],
-        forward_model=forward_model,
-        observation_operator=observation_operator,
-        likelihood=likelihood,
-        model_error=model_error,
-        backend=config['backend'],
-    )
-    '''
+    particle_filter_input = {
+        'particle_filter_args': config['particle_filter_args'],
+        'forward_model': forward_model,
+        'observation_operator': observation_operator,
+        'likelihood': likelihood,
+        'model_error': model_error,
+        'backend': config['backend'],
+    }
 
+    # Initialize particle filter.
+    if particle_filter_type == 'bootstrap':
+        particle_filter = BootstrapFilter(
+            **particle_filter_input,
+        )
+    elif particle_filter_type == 'stein':
+        particle_filter = SteinFilter(
+            **particle_filter_input,
+        )
+        
     init_pars = np.random.uniform(
         low=config['prior_pars']['lower_bound'],
         high=config['prior_pars']['upper_bound'],
         size=(particle_filter.num_particles, config['prior_pars']['num_pars']),
     )
-    num_previous_steps = 1 
-    if config['model_type'] == 'neural_network':
-        num_previous_steps =\
-              config['forward_model_args']['model_args']['num_previous_steps']
-        
+    
     state_ensemble, pars_ensemble = particle_filter.compute_filtered_solution(
         true_solution=true_solution,
         init_pars=init_pars,
-        transform_state=True,
-        num_previous_steps=num_previous_steps,
         save_level=SAVE_LEVEL,
-        model_type=config['model_type'],
     )
     
     state_ensemble_save = np.zeros(
@@ -221,7 +224,7 @@ def main():
         for time_idx in pbar:
             state_ensemble_save[:, :, :, time_idx] = \
                 forward_model.transform_state(
-                        state_ensemble[:, :, :, time_idx] if config['model_type'] == 'PDE' else\
+                        state_ensemble[:, :, :, time_idx] if config['model_type'] in ['PDE', 'FNO'] else\
                         state_ensemble[:, :, time_idx].unsqueeze(-1),
                     x_points=observation_operator.full_space_points,
                     pars=pars_ensemble[:, :, time_idx]
@@ -234,7 +237,7 @@ def main():
         bar_format = "{desc}: {percentage:.2f}%|{bar:20}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}]"#
         )
     for time_idx in pbar:
-        if config['model_type'] == 'neural_network':
+        if config['model_type'] == 'latent':
             pars_ensemble_save[:, :, time_idx] = forward_model.transform_pars(
                 pars_ensemble[:, :, time_idx]                                                                                                                      
             )
@@ -276,8 +279,8 @@ def main():
         )
 
     elif SAVE_LOCAL_OR_ORACLE == 'local':
-        #np.savez_compressed(f'{LOCAL_SAVE_PATH}/states.npz', data=state_ensemble_save)
-        #np.savez_compressed(f'{LOCAL_SAVE_PATH}/pars.npz', data=pars_ensemble_save)
+        np.savez_compressed(f'{LOCAL_SAVE_PATH}/states.npz', data=state_ensemble_save)
+        np.savez_compressed(f'{LOCAL_SAVE_PATH}/pars.npz', data=pars_ensemble_save)
 
         print('Plotting results...')
         plot_state_results(

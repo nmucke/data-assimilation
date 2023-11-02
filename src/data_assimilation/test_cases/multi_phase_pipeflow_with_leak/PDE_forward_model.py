@@ -37,9 +37,10 @@ class PDEForwardModel(BaseForwardModel):
         **kwargs
         ):
 
-        super().__init__(**kwargs)
+        super().__init__()
 
         self.distributed = distributed
+        self.model_type = 'PDE'
 
         self.steady_state_args = model_args['steady_state']
         model_args.pop('steady_state')
@@ -75,7 +76,7 @@ class PDEForwardModel(BaseForwardModel):
     def update_params(self, params):
         self.model.update_parameters(params)
     
-    def transform_state(self, state, x_points, pars=None):
+    def transform_state(self, state, x_points, pars=None, **kwargs):
 
         state_out = np.zeros((state.shape[0], 3, x_points.shape[0]))
         

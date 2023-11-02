@@ -1,7 +1,5 @@
-
-
 particle_filter_args:
-  num_particles: 1500
+  num_particles: 2000
   ESS_threshold: 0.5
 
 plotting_args:
@@ -17,15 +15,17 @@ prior_pars:
   num_pars: 2
 
 model_type: 'PDE'
+backend: 'numpy'
 
 forward_model_args:
+  num_PDE_states: 3
   model_args:
     basic_args:
       xmin: 0
       xmax: 5000
-      num_elements: 200
+      num_elements: 300
       num_states: 3
-      polynomial_order: 2
+      polynomial_order: 1
       polynomial_type: 'legendre'
 
     steady_state:
@@ -33,7 +33,7 @@ forward_model_args:
           solver: 'direct'
           max_newton_iter: 200
           newton_tol: 1.0e-5
-          num_jacobian_reuses: 120
+          num_jacobian_reuses: 100
             
     numerical_flux_args:
       type: 'lax_friedrichs'
@@ -44,7 +44,7 @@ forward_model_args:
       second_derivative_upper_bound: 1.0e-8
 
     time_integrator_args:
-      type: 'BDF2'
+      type: 'implicit_euler'
       step_size: 0.01
       newton_params:
         solver: 'direct'
@@ -59,19 +59,17 @@ forward_model_args:
 
 observation_args:
   noise_variance: 5.0e-5
-  observation_times: [400, 800, 1200, 1600, 2000, 2400, 2800, 3200, 3600, 4000, 4400, 4800, 5200, 5600, 6000, 6400, 6800, 7200, 7600, 8000,]
-                      # 8400, 8800, 9200, 9600, 10000, 10400, 10800, 11200, 11600, 12000, 12400, 12800, 13200, 13600, 14000, 14400, 14800, 15200, 
-                      # 15600, 16000, 16400, 16800, 17200, 17600]
+  observation_times: [400, 12000, 400]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:
   observation_state_ids: [1]
-  observation_space_ids: [10, 250, 500]
+  observation_space_ids: [10, 50, 100, 250, 300, 350, 400, 450, 500]
   full_space_points: [0, 5000, 512]
 
 likelihood_args:
   noise_variance: 1.0e-4
 
 model_error_args:
-  noise_variance: [1.0e-6, 1.0e-5, 1.0e-5]
+  noise_variance: [1.0e-7, 1.0e-7, 1.0e-7]
   

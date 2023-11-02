@@ -7,7 +7,7 @@ from data_assimilation.particle_filter.base import BaseParticleFilter
 
 
 
-class BootstrapFilter(BaseParticleFilter):
+class MLBootstrapFilter(BaseParticleFilter):
 
     def __init__(
         self,

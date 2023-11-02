@@ -1,0 +1,56 @@
+
+
+particle_filter_args:
+  num_particles: 400
+  ESS_threshold: 0.5
+
+
+plotting_args:
+  states_to_plot: [0, 1, 2]
+  state_names: ['Hold up', 'Pressure', 'Velocity']
+  pars_to_plot: [0, 1]
+  par_names: ['Leak location', 'Leak size']
+
+
+prior_pars:
+  type: 'uniform'
+  lower_bound: [10.0, 1.]
+  upper_bound: [4990, 2.]
+  num_pars: 2
+
+model_type: 'FNO'
+backend: 'torch'
+
+forward_model_args:
+  num_skip_steps: 10
+  PDE_step_size: 0.01
+  space_dim: 512
+  x_max: 5000
+  batch_size: 256
+  num_PDE_states: 3
+  num_pars: 2
+  initial_condition_path: data/multi_phase_pipeflow_with_leak/initial_conditions
+  matlab: False
+  model_args:
+    time_stepping_model_path: 'multi_phase/time_steppers/FNO'
+    preprocessor_path: 'multi_phase/preprocessor.pkl'
+    num_previous_steps: 64
+    phase: 'multi'
+
+observation_args:
+  noise_variance: 5.0e-5
+  observation_times: [400, 12000, 400]
+  full_time_points: [0, 180, 18000]
+
+observation_operator_args:
+  observation_state_ids: [1]
+  #observation_space_ids: [10, 250, 500]
+  observation_space_ids: [10, 50, 100, 250, 300, 350, 400, 450, 500]
+  full_space_points: [0, 5000, 512]
+
+likelihood_args:
+  noise_variance: 1.0e-4
+
+model_error_args:
+  noise_variance: [1.0e-6, 1.0e-5, 1.0e-5]
+  

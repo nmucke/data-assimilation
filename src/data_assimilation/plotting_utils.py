@@ -42,12 +42,14 @@ def plot_state_results(
 
     x_vec = true_solution.observation_operator.full_space_points
     x_obs_vec = true_solution.observation_operator.x_observation_points
+    state_obs_ids = true_solution.observation_operator.observation_state_ids
     
     state_mean = np.mean(state_ensemble, axis=0)
     state_std = np.std(state_ensemble, axis=0)
 
     for state_idx in plotting_args['states_to_plot']:
         save_path_i = f'{save_path}/{plotting_args["state_names"][state_idx]}'
+
         plot_state_variable(
             x_vec=x_vec,
             state_mean=state_mean[state_idx, :, -1],
@@ -55,7 +57,7 @@ def plot_state_results(
             true_state=true_solution.state[state_idx, :, true_solution.observation_times[-1]],
             save_path=save_path_i,
             x_obs_vec=x_obs_vec,
-            state_obs=obs
+            state_obs=obs if state_idx in state_obs_ids else None,
         )
 
         if object_storage_client is not None:

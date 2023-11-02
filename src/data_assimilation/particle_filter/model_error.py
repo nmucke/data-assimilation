@@ -52,6 +52,9 @@ class PDEModelError(BaseModelError):
             
     def add_model_error(self, state_ensemble, pars_ensemble):
 
+        if isinstance(state_ensemble, torch.Tensor):
+            state_ensemble = state_ensemble.detach().numpy()
+            
         state_ensemble = state_ensemble.copy()
 
         for i in range(self.num_states):
@@ -73,10 +76,14 @@ class PDEModelError(BaseModelError):
             self.covariance_matrices[i] = self.noise_variance[i]*C
 
             self.model_error_distributions[i] = (
-                multivariate_normal(mean=np.zeros(self.space_dim), cov=self.covariance_matrices[i], allow_singular=True)
+                multivariate_normal(
+                    mean=np.zeros(self.space_dim), 
+                    cov=self.covariance_matrices[i], 
+                    allow_singular=True
+                )
             )
         
-class NeuralNetworkModelError(BaseModelError):
+class LatentModelError(BaseModelError):
     def __init__(
         self, 
         state_noise_variance: float,
@@ -97,20 +104,23 @@ class NeuralNetworkModelError(BaseModelError):
         
         self.state_error_distribution = \
             MultivariateNormal(
-                loc=torch.zeros(self.latent_dim), covariance_matrix=self.state_noise_variance*torch.eye(self.latent_dim)
-                )
+                loc=torch.zeros(self.latent_dim), 
+                covariance_matrix=self.state_noise_variance*torch.eye(self.latent_dim)
+            )
         
         self.parameter_covariance = torch.diag(self.parameter_noise_variance)        
         self.parameter_error_distribution = \
             MultivariateNormal(
-                loc=torch.zeros(self.num_params), covariance_matrix=self.parameter_covariance
+                loc=torch.zeros(self.num_params), 
+                covariance_matrix=self.parameter_covariance
             )
 
     def add_model_error(self, state_ensemble, pars_ensemble):
 
         state_ensemble = state_ensemble.clone()
-        state_noise = self.state_error_distribution.sample((state_ensemble.shape[0],))
-        state_ensemble[:, :, -1] = state_ensemble[:, :, -1] + state_noise.to(state_ensemble.device)
+        for i in range(state_ensemble.shape[-1]):
+            state_noise = self.state_error_distribution.sample((state_ensemble.shape[0],))
+            state_ensemble[:, :, -i] = state_ensemble[:, :, -i] + state_noise.to(state_ensemble.device)
 
         pars_ensemble = pars_ensemble.clone()
         parameter_noise = self.parameter_error_distribution.sample((pars_ensemble.shape[0],))
