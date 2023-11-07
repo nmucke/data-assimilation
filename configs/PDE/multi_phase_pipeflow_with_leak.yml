@@ -1,5 +1,5 @@
 particle_filter_args:
-  num_particles: 2000
+  num_particles: 10000
   ESS_threshold: 0.5
 
 plotting_args:
@@ -7,6 +7,7 @@ plotting_args:
   state_names: ['Hold up', 'Pressure', 'Velocity']
   pars_to_plot: [0, 1]
   par_names: ['Leak location', 'Leak size']
+  observations_names: ['Pressure']
 
 prior_pars:
   type: 'uniform'
@@ -23,9 +24,9 @@ forward_model_args:
     basic_args:
       xmin: 0
       xmax: 5000
-      num_elements: 300
+      num_elements: 500
       num_states: 3
-      polynomial_order: 1
+      polynomial_order: 2
       polynomial_type: 'legendre'
 
     steady_state:
@@ -44,7 +45,7 @@ forward_model_args:
       second_derivative_upper_bound: 1.0e-8
 
     time_integrator_args:
-      type: 'implicit_euler'
+      type: 'BDF2'
       step_size: 0.01
       newton_params:
         solver: 'direct'
@@ -59,17 +60,17 @@ forward_model_args:
 
 observation_args:
   noise_variance: 5.0e-5
-  observation_times: [400, 12000, 400]
+  observation_times: [400, 2000, 400]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:
   observation_state_ids: [1]
-  observation_space_ids: [10, 50, 100, 250, 300, 350, 400, 450, 500]
+  observation_space_ids: [50, 150, 250, 350, 450]
   full_space_points: [0, 5000, 512]
 
 likelihood_args:
   noise_variance: 1.0e-4
 
 model_error_args:
-  noise_variance: [1.0e-7, 1.0e-7, 1.0e-7]
+  noise_variance: [1.0e-9, 1.0e-7, 1.0e-7]
   

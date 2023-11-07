@@ -8,8 +8,10 @@ from matplotlib import pyplot as plt
 import torch
 from data_assimilation.particle_filter.NN_forward_model import NNForwardModel
 from data_assimilation.particle_filter.stein_filter import SteinFilter
+from data_assimilation.particle_filter.ml_bootstrap_filter import MLBootstrapFilter
 
 from data_assimilation.plotting_utils import (
+    plot_observation_results,
     plot_parameter_results, 
     plot_state_results
 )
@@ -43,7 +45,7 @@ TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#
 MODEL_TYPE = 'PDE'
 
 DISTRIBUTED = True
-NUM_WORKERS = 25
+NUM_WORKERS = 100
 
 TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle'
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
@@ -51,7 +53,7 @@ LOCAL_PATH = f'data/{TEST_CASE}/test'
 
 DEVICE = 'cuda'
 
-SAVE_LOCAL_OR_ORACLE = 'local'
+SAVE_LOCAL_OR_ORACLE = 'oracle'
 BUCKET_NAME = 'data_assimilation_results'
 
 SAVE_LEVEL = 0
@@ -185,6 +187,10 @@ def main():
         particle_filter = SteinFilter(
             **particle_filter_input,
         )
+    elif particle_filter_type == 'ml_bootstrap':
+        particle_filter = MLBootstrapFilter(
+            **particle_filter_input,
+        )
         
     init_pars = np.random.uniform(
         low=config['prior_pars']['lower_bound'],
@@ -192,7 +198,7 @@ def main():
         size=(particle_filter.num_particles, config['prior_pars']['num_pars']),
     )
     
-    state_ensemble, pars_ensemble = particle_filter.compute_filtered_solution(
+    state_ensemble, pars_ensemble, state_observations = particle_filter.compute_filtered_solution(
         true_solution=true_solution,
         init_pars=init_pars,
         save_level=SAVE_LEVEL,
@@ -260,42 +266,39 @@ def main():
             data=pars_ensemble_save,
             destination_path=f'{ORACLE_SAVE_PATH}/pars.npz',
         )
-
-        print('Plotting results...')
-        plot_state_results(
-            state_ensemble=state_ensemble_save,
-            true_solution=true_solution,
-            save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
-            object_storage_client=object_storage_client,
-            plotting_args=config['plotting_args'],
-        )
-
-        plot_parameter_results(
-            pars_ensemble=pars_ensemble_save,
-            true_solution=true_solution,
-            save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
-            object_storage_client=object_storage_client,
-            plotting_args=config['plotting_args'],
+        object_storage_client.put_numpy_object(
+            data=state_observations,
+            destination_path=f'{ORACLE_SAVE_PATH}/state_observations.npz',
         )
 
     elif SAVE_LOCAL_OR_ORACLE == 'local':
         np.savez_compressed(f'{LOCAL_SAVE_PATH}/states.npz', data=state_ensemble_save)
         np.savez_compressed(f'{LOCAL_SAVE_PATH}/pars.npz', data=pars_ensemble_save)
+        np.savez_compressed(f'{LOCAL_SAVE_PATH}/state_observations.npz', data=state_observations)
 
-        print('Plotting results...')
-        plot_state_results(
-            state_ensemble=state_ensemble_save,
-            true_solution=true_solution,
-            save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
-            plotting_args=config['plotting_args'],
-        )
+    print('Plotting results...')
+    plot_state_results(
+        state_ensemble=state_ensemble_save,
+        true_solution=true_solution,
+        save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
+        object_storage_client=object_storage_client if SAVE_LOCAL_OR_ORACLE == 'oracle' else None,
+        plotting_args=config['plotting_args'],
+    )
 
-        plot_parameter_results(
-            pars_ensemble=pars_ensemble_save,
-            true_solution=true_solution,
-            save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
-            plotting_args=config['plotting_args'],
-        )
+    plot_parameter_results(
+        pars_ensemble=pars_ensemble_save,
+        true_solution=true_solution,
+        save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
+        object_storage_client=object_storage_client if SAVE_LOCAL_OR_ORACLE == 'oracle' else None,
+        plotting_args=config['plotting_args'],
+    )
+    plot_observation_results(
+        obs_ensemble=state_observations,
+        true_solution= true_solution,
+        save_path=ORACLE_SAVE_PATH if SAVE_LOCAL_OR_ORACLE == 'oracle' else LOCAL_SAVE_PATH,
+        object_storage_client=object_storage_client if SAVE_LOCAL_OR_ORACLE == 'oracle' else None,
+        plotting_args=config['plotting_args'],
+    )
 
 
     

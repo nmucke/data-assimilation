@@ -187,18 +187,18 @@ class NNForwardModel(BaseForwardModel):
             (self.num_particles, self.num_PDE_states, self.space_dim, output_seq_len),
         )
 
-        with torch.no_grad():
-            for batch_idx in range(0, self.num_particles, self.batch_size):
-                batch_state = state_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
-                batch_pars = pars_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
+        #with torch.no_grad():
+        for batch_idx in range(0, self.num_particles, self.batch_size):
+            batch_state = state_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
+            batch_pars = pars_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
 
-                batch_state_ensemble = self.time_stepping_model.multistep_prediction(
-                    input=batch_state, 
-                    pars=batch_pars, 
-                    output_seq_len=output_seq_len,
-                )[:, :, :, -output_seq_len:]
+            batch_state_ensemble = self.time_stepping_model.multistep_prediction(
+                input=batch_state, 
+                pars=batch_pars, 
+                output_seq_len=output_seq_len,
+            )[:, :, :, -output_seq_len:]
 
 
-                out_state[batch_idx:batch_idx+self.batch_size] = batch_state_ensemble.cpu()
+            out_state[batch_idx:batch_idx+self.batch_size] = batch_state_ensemble#.cpu()
 
         return out_state, output_seq_len*self.step_size

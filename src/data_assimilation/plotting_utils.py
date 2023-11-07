@@ -48,7 +48,7 @@ def plot_state_results(
     state_std = np.std(state_ensemble, axis=0)
 
     for state_idx in plotting_args['states_to_plot']:
-        save_path_i = f'{save_path}/{plotting_args["state_names"][state_idx]}'
+        save_path_i = f'{save_path}/{plotting_args["state_names"][state_idx]}.png'
 
         plot_state_variable(
             x_vec=x_vec,
@@ -67,7 +67,48 @@ def plot_state_results(
             plt.savefig(save_path_i)
         plt.close()
 
-        
+def plot_observation_results(
+    obs_ensemble: np.ndarray,
+    true_solution: TrueSolution,
+    save_path: str,
+    object_storage_client: ObjectStorageClientWrapper = None,
+    plotting_args: dict = None,
+):
+
+    save_path_i = f'{save_path}/observations.png'
+
+    obs_mean = np.mean(obs_ensemble, axis=0)
+    obs_std = np.std(obs_ensemble, axis=0)
+
+    plt.figure()
+    for i in range(obs_mean.shape[0]):
+        plt.plot(
+            np.linspace(0, true_solution.observation_t_vec[-1], obs_mean.shape[-1]),
+            obs_mean[i], 
+            linewidth=2., color='tab:blue'
+        )
+        plt.fill_between(
+            np.linspace(0, true_solution.observation_t_vec[-1], obs_mean.shape[-1]),
+            obs_mean[i] - 2*obs_std[i],
+            obs_mean[i] + 2*obs_std[i],
+            alpha=0.25,
+            color='tab:blue',
+        )
+        plt.plot(
+            true_solution.observation_t_vec, 
+            true_solution.observations[i]
+            , '.', color='tab:red', markersize=15
+        )
+    plt.ylabel(plotting_args['observations_names'][0])
+    plt.xlabel('Time')
+    plt.grid()
+    
+    if object_storage_client is not None:
+        with object_storage_client.fs.open(f'{object_storage_client.bucket_name}@{object_storage_client.namespace}/{save_path_i}', 'wb') as f:
+            plt.savefig(f)
+    else:
+        plt.savefig(save_path_i)
+    plt.close()
 
 
 def plot_parameter_results(
@@ -84,7 +125,7 @@ def plot_parameter_results(
         pars = pars_ensemble[:, pars_idx, -1]
 
         # get KDE approximations for plotting
-        kde_pars = gaussian_kde(pars)
+        kde_pars = gaussian_kde(pars, bw_method=0.3).pdf
 
         x_vec = np.linspace(
             pars.min()-pars.std()*5, 

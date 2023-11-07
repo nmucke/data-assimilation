@@ -43,6 +43,7 @@ class PDEModelError(BaseModelError):
                 shape=(space_dim,space_dim)
             ).toarray() for i in range(self.num_states)
         ]
+        self.covariance_matrices = [var * np.eye(self.space_dim) for var in self.noise_variance]
 
         self.model_error_distributions = []
         for i in range(self.num_states):
@@ -123,8 +124,8 @@ class LatentModelError(BaseModelError):
             state_ensemble[:, :, -i] = state_ensemble[:, :, -i] + state_noise.to(state_ensemble.device)
 
         pars_ensemble = pars_ensemble.clone()
-        parameter_noise = self.parameter_error_distribution.sample((pars_ensemble.shape[0],))
-        pars_ensemble[:, : , -1] = pars_ensemble[:, : , -1] + parameter_noise.to(pars_ensemble.device)
+        #parameter_noise = self.parameter_error_distribution.sample((pars_ensemble.shape[0],))
+        #pars_ensemble[:, : , -1] = pars_ensemble[:, : , -1] + parameter_noise.to(pars_ensemble.device)
 
         return state_ensemble, pars_ensemble 
     

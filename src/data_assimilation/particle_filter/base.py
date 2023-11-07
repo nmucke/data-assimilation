@@ -152,6 +152,8 @@ class BaseParticleFilter(ABC):
             bar_format = "{desc}: {percentage:.2f}%|{bar:20}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}]"#
         )
 
+        state_observations = []
+
         for i, t_new in pbar:
 
             posterior_state_ensemble, posterior_pars_ensemble = \
@@ -161,6 +163,13 @@ class BaseParticleFilter(ABC):
                     observations=true_solution.observations[:, i],
                     t_range=[t_old, t_new],
                 )
+            
+            observations = self.observation_operator.get_observations(
+                posterior_state_ensemble,
+                ensemble=True,
+            )
+
+            state_observations.append(observations)
 
             if self.model_type in ['latent', 'neural_network']: 
                 state_ensemble = torch.cat(
@@ -216,8 +225,9 @@ class BaseParticleFilter(ABC):
             elif save_level == 2:
                 return torch.cat(out_state_ensemble, dim=-1), torch.cat(out_pars_ensemble, dim=-1)
 
+        state_observations = np.concatenate(state_observations, axis=-1)
         
-        return state_ensemble, pars_ensemble
+        return state_ensemble, pars_ensemble, state_observations
 
 
 

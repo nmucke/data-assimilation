@@ -55,21 +55,54 @@ class MLBootstrapFilter(BaseParticleFilter):
 
         return state_ensemble[indeces], pars_ensemble[indeces]
         
-    def _compute_prior_particles(
-        self, 
-        state_ensemble, 
+    def _maximum_likelihood_pars_estimate(
+        self,
+        state_ensemble,
         pars_ensemble,
+        observations,
         t_range
     ):
+        pars_input = pars_ensemble[:, :, -1].clone().to(self.forward_model.device)
+        pars_input.requires_grad = True
 
-        state_ensemble = self.forward_model.compute_forward_model(
-            state_ensemble=state_ensemble,
-            pars_ensemble=pars_ensemble,
-            t_range=t_range,
-        )
+        optimizer = torch.optim.Adam([pars_input], lr=0.01)
 
-        return state_ensemble
-    
+        state_ensemble=state_ensemble[:, :, -self.num_previous_steps:]
+
+        output_seq_len = int((t_range[-1] - t_range[0]) // self.forward_model.step_size)
+
+        for i in range(100):
+            likelihood = 0
+            for batch_idx in range(0, self.num_particles, self.forward_model.batch_size):
+
+                batch_state = state_ensemble[batch_idx:batch_idx+self.forward_model.batch_size].to(self.forward_model.device)
+                batch_pars = pars_input[batch_idx:batch_idx+self.forward_model.batch_size].to(self.forward_model.device)
+
+                batch_state = self.forward_model.time_stepping_model.multistep_prediction(
+                    input=batch_state, 
+                    pars=batch_pars, 
+                    output_seq_len=output_seq_len,
+                )
+
+                batch_state = self.forward_model.AE_model.decode(batch_state[:, :, -1:], batch_pars)
+                batch_state = self.forward_model.preprocesssor.inverse_transform_state(batch_state, ensemble=True)
+                batch_state = batch_state.squeeze(-1)
+                
+                likelihood -= self.likelihood.compute_likelihood(
+                    state=batch_state, 
+                    observations=observations.to(self.forward_model.device),
+                )
+
+            likelihood = likelihood.sum()
+
+            optimizer.zero_grad()
+            likelihood.backward()
+            optimizer.step()
+
+
+        return pars_input.cpu().detach()        
+
+
     def _get_posterior(
         self, 
         state_ensemble, 
@@ -78,39 +111,43 @@ class MLBootstrapFilter(BaseParticleFilter):
         t_range,
     ):
         
+        ml_pars = self._maximum_likelihood_pars_estimate(
+            state_ensemble=state_ensemble,
+            pars_ensemble=pars_ensemble,
+            observations=observations,
+            t_range=t_range,
+        )
+        
         self.model_error.update(
             state_ensemble=\
                 state_ensemble[:, :, :, -1] if self.model_type in ['PDE', 'FNO'] else \
                 state_ensemble[:, :, -self.num_previous_steps:],
-            pars_ensemble=pars_ensemble[:, :, -1],
+            pars_ensemble=ml_pars#pars_ensemble[:, :, -1],
         )
 
         state_ensemble, pars_ensemble = self.model_error.add_model_error(
             state_ensemble=\
                 state_ensemble[:, :, :, -1] if self.model_type in ['PDE', 'FNO'] else \
                 state_ensemble[:, :, -self.num_previous_steps:],
-            pars_ensemble=pars_ensemble[:, :, -1:],
+            pars_ensemble=ml_pars#pars_ensemble[:, :, -1:],
+        )
+
+        state_ensemble, _ = self.forward_model.compute_forward_model(
+            state_ensemble=state_ensemble[:, :, -self.num_previous_steps:],
+            pars_ensemble=pars_ensemble,#pars_ensemble[:, :, -1],
+            t_range=t_range,
         )
 
         if self.model_type in ['FNO']:
             state_ensemble = torch.tensor(state_ensemble).unsqueeze(-1)
             pars_ensemble = pars_ensemble.clone().detach()
                 
-        state_ensemble, t_vec = self._compute_prior_particles(
-            state_ensemble=\
-                state_ensemble if self.model_type in ['PDE', 'FNO'] else \
-                state_ensemble[:, :, -self.num_previous_steps:],
-            pars_ensemble=pars_ensemble[:, :, -1],
-            t_range=t_range,
-        )
 
         if self.forward_model.transform_state is not None:
             state_ensemble_transformed = self.forward_model.transform_state(
-                state=\
-                    state_ensemble[:, :, :, -1] if self.model_type in ['PDE', 'FNO'] else \
-                    state_ensemble[:, :, -1:],
+                state=state_ensemble[:, :, -1:],
                 x_points=self.observation_operator.full_space_points,
-                pars=pars_ensemble[:, :, -1],
+                pars=pars_ensemble,#pars_ensemble[:, :, -1],
                 numpy=True if self.backend == 'numpy' else False,
             )
         else:
@@ -148,6 +185,6 @@ class MLBootstrapFilter(BaseParticleFilter):
             state_ensemble = state_ensemble.cpu().detach()
             pars_ensemble = pars_ensemble.cpu().detach()
         
-        return state_ensemble, pars_ensemble
+        return state_ensemble, pars_ensemble.unsqueeze(-1)
     
 
