@@ -1,5 +1,5 @@
 particle_filter_args:
-  num_particles: 10000
+  num_particles: 25
   ESS_threshold: 0.5
 
 plotting_args:
@@ -60,7 +60,7 @@ forward_model_args:
 
 observation_args:
   noise_variance: 5.0e-5
-  observation_times: [400, 2000, 400]
+  observation_times: [400, 18000, 400]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:
@@ -69,8 +69,9 @@ observation_operator_args:
   full_space_points: [0, 5000, 512]
 
 likelihood_args:
-  noise_variance: 1.0e-4
+  noise_variance: 1.0e-5
+  multivariate: True
 
 model_error_args:
-  noise_variance: [1.0e-9, 1.0e-7, 1.0e-7]
+  noise_variance: [1.0e-9, 1.0e-9, 1.0e-9]
   

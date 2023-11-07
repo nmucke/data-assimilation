@@ -24,6 +24,7 @@ class PDEModelError(BaseModelError):
 
         self.num_states = len(self.noise_variance)
 
+        '''
         band_width = 8
 
         var_multipliers = np.linspace(0.1, 1, band_width, endpoint=False)
@@ -35,7 +36,6 @@ class PDEModelError(BaseModelError):
         diag_var = []
         for i in range(self.num_states):
             diag_var.append(var_multipliers*self.noise_variance[i])
-
         self.covariance_matrices = [
             diags(
                 diag_var[i],
@@ -43,13 +43,14 @@ class PDEModelError(BaseModelError):
                 shape=(space_dim,space_dim)
             ).toarray() for i in range(self.num_states)
         ]
+        '''
         self.covariance_matrices = [var * np.eye(self.space_dim) for var in self.noise_variance]
-
         self.model_error_distributions = []
         for i in range(self.num_states):
             self.model_error_distributions.append(
                 multivariate_normal(mean=np.zeros(space_dim), cov=self.covariance_matrices[i])
             )
+
             
     def add_model_error(self, state_ensemble, pars_ensemble):
 

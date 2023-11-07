@@ -45,7 +45,7 @@ TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#
 MODEL_TYPE = 'PDE'
 
 DISTRIBUTED = True
-NUM_WORKERS = 100
+NUM_WORKERS = 25
 
 TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle'
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
