@@ -20,7 +20,14 @@ class ObservationOperator(BaseObservationOperator):
 
         self.backend = backend
 
-        self.observation_space_ids = observation_space_ids
+        if len(observation_space_ids) == 3:
+            self.observation_space_ids = np.arange(
+                observation_space_ids[0], 
+                observation_space_ids[1], 
+                observation_space_ids[2]
+                )
+        else:
+            self.observation_space_ids = observation_space_ids
         self.observation_state_ids = observation_state_ids
 
         self.num_observations = len(self.observation_space_ids)

@@ -19,12 +19,12 @@ PDEForwardModel = importlib.import_module(
 ).PDEForwardModel
 
 # Load config file.
-CONFIG_PATH = f'configs/PDEs/{TEST_CASE}.yml'
+CONFIG_PATH = f'configs/PDE/{TEST_CASE}.yml'
 with open(CONFIG_PATH, 'r') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 # Load config file.
-CONFIG_PATH = f'configs/neural_networks/{TEST_CASE}.yml'
+CONFIG_PATH = f'configs/latent/{TEST_CASE}.yml'
 with open(CONFIG_PATH, 'r') as f:
     NN_config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -36,7 +36,7 @@ create_directory(LOCAL_SAVE_PATH_PARS)
     
 def main():
 
-    num_samples = 25000
+    num_samples = 10000
 
     # Initialize forward model.
     forward_model = PDEForwardModel(
@@ -66,7 +66,7 @@ def main():
         NN_config['forward_model_args']['space_dim']
     )
 
-    for i in range(0, num_samples, BATCH_SIZE): 
+    for i in range(3700, num_samples, BATCH_SIZE): 
         
         batch_ids = range(i, i + BATCH_SIZE)
                 
@@ -85,9 +85,9 @@ def main():
 
         for save_i in batch_ids:
             np.savez_compressed(f'{LOCAL_SAVE_PATH_STATE}/sample_{save_i}.npz', data=state_transformed[save_i-i])
-            np.savez_compressed(f'{LOCAL_SAVE_PATH_PARS}/sample_{save_i}.npz', data=init_pars[save_i-i])
+            np.savez_compressed(f'{LOCAL_SAVE_PATH_PARS}/sample_{save_i}.npz', data=init_pars[save_i])
 
-
+        print(f'Saved {i} out of {num_samples} samples.')
     
 if __name__ == '__main__':
 

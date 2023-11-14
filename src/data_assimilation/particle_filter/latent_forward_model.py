@@ -12,6 +12,7 @@ from latent_time_stepping.utils import (
     load_trained_AE_model, 
     load_trained_time_stepping_model
 )
+import matplotlib.pyplot as plt
 
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
@@ -158,7 +159,8 @@ class LatentForwardModel(BaseForwardModel):
     
 
     def transform_pars(self, pars):
-
+        
+        pars = pars.clone()
         pars = self.preprocesssor.inverse_transform_pars(pars, ensemble=True)
 
         return pars.cpu().detach().numpy()
@@ -204,6 +206,7 @@ class LatentForwardModel(BaseForwardModel):
         pars = self.preprocesssor.transform_pars(pars, ensemble=True)
         pars = pars.unsqueeze(-1)
         pars = pars.repeat(1, 1, out_state.shape[-1])
+
 
         '''
 

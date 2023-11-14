@@ -40,12 +40,12 @@ torch.backends.cuda.matmul.allow_tf32 = True
 particle_filter_type = 'bootstrap'
 
 PHASE = 'multi'
-TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#
+TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#'burgers'#
 
 MODEL_TYPE = 'PDE'
 
 DISTRIBUTED = True
-NUM_WORKERS = 25
+NUM_WORKERS = 100
 
 TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle'
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
@@ -68,13 +68,18 @@ CONFIG_PATH = f'configs/{MODEL_TYPE}/{TEST_CASE}.yml'
 with open(CONFIG_PATH, 'r') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-if SAVE_LOCAL_OR_ORACLE == 'local':
-    LOCAL_SAVE_PATH = f'results/{TEST_CASE}_{MODEL_TYPE}_{config["particle_filter_args"]["num_particles"]}'
-    create_directory(LOCAL_SAVE_PATH)
+#if SAVE_LOCAL_OR_ORACLE == 'local':
+LOCAL_SAVE_PATH = f'results/{TEST_CASE}_{MODEL_TYPE}_{config["particle_filter_args"]["num_particles"]}'
+create_directory(LOCAL_SAVE_PATH)
     
-elif SAVE_LOCAL_OR_ORACLE == 'oracle':
-    ORACLE_SAVE_PATH = f'{TEST_CASE}_{MODEL_TYPE}_{config["particle_filter_args"]["num_particles"]}'
+#elif SAVE_LOCAL_OR_ORACLE == 'oracle':
+ORACLE_SAVE_PATH = f'{TEST_CASE}_{MODEL_TYPE}_{config["particle_filter_args"]["num_particles"]}'
 
+if TEST_CASE == 'multi_phase_pipeflow_with_leak' and MODEL_TYPE == 'PDE':
+    space_dim = config['forward_model_args']['model_args']['basic_args']['num_elements']* \
+        (config['forward_model_args']['model_args']['basic_args']['polynomial_order']+1)
+elif TEST_CASE == 'burgers' and MODEL_TYPE == 'PDE':
+    space_dim = config['forward_model_args']['model_args']['N']
 
 def main():
 
@@ -156,9 +161,7 @@ def main():
         # Initialize model error.
         model_error = PDEModelError(
             **config['model_error_args'],
-            space_dim=\
-                config['forward_model_args']['model_args']['basic_args']['num_elements']*\
-                (config['forward_model_args']['model_args']['basic_args']['polynomial_order']+1),
+            space_dim=space_dim,
         )
     
 
@@ -176,6 +179,7 @@ def main():
         'likelihood': likelihood,
         'model_error': model_error,
         'backend': config['backend'],
+        'save_folder': LOCAL_SAVE_PATH
     }
 
     # Initialize particle filter.
@@ -198,12 +202,15 @@ def main():
         size=(particle_filter.num_particles, config['prior_pars']['num_pars']),
     )
     
-    state_ensemble, pars_ensemble, state_observations = particle_filter.compute_filtered_solution(
+    state_ensemble_save, pars_ensemble_save, state_observations = particle_filter.compute_filtered_solution(
         true_solution=true_solution,
         init_pars=init_pars,
         save_level=SAVE_LEVEL,
+        distributed=DISTRIBUTED,
+        num_workers=NUM_WORKERS,
     )
     
+    '''
     state_ensemble_save = np.zeros(
         (
             state_ensemble.shape[0], 
@@ -219,7 +226,9 @@ def main():
             pars_ensemble.shape[-1], 
         )
     )
+    '''
 
+    '''
     print('Transforming state ensemble...')
     with torch.no_grad():
         pbar = tqdm(
@@ -249,8 +258,13 @@ def main():
             )
         else:
             pars_ensemble_save[:, :, time_idx] = pars_ensemble[:, :, time_idx]
+    '''
 
-    RMSE = np.sqrt(np.mean((state_ensemble_save[:, :, :, -1] - true_solution.state[:, :, -1])**2))
+    #RMSE = np.sqrt(np.mean((state_ensemble_save[:, :, :, -1] - true_solution.state[:, :, -1])**2))
+    #print(f'RMSE: {RMSE}')
+    mean_pred = state_ensemble_save[:, :, :, -1].mean(axis=0)
+    RMSE = np.mean((mean_pred - true_solution.state[:, :, true_solution.num_observation_times])**2)
+    RMSE = np.sqrt(RMSE)
     print(f'RMSE: {RMSE}')
 
     print('Saving results...')
@@ -266,10 +280,12 @@ def main():
             data=pars_ensemble_save,
             destination_path=f'{ORACLE_SAVE_PATH}/pars.npz',
         )
+        '''
         object_storage_client.put_numpy_object(
             data=state_observations,
             destination_path=f'{ORACLE_SAVE_PATH}/state_observations.npz',
         )
+        '''
 
     elif SAVE_LOCAL_OR_ORACLE == 'local':
         np.savez_compressed(f'{LOCAL_SAVE_PATH}/states.npz', data=state_ensemble_save)
@@ -292,6 +308,7 @@ def main():
         object_storage_client=object_storage_client if SAVE_LOCAL_OR_ORACLE == 'oracle' else None,
         plotting_args=config['plotting_args'],
     )
+    '''
     plot_observation_results(
         obs_ensemble=state_observations,
         true_solution= true_solution,
@@ -299,6 +316,7 @@ def main():
         object_storage_client=object_storage_client if SAVE_LOCAL_OR_ORACLE == 'oracle' else None,
         plotting_args=config['plotting_args'],
     )
+    '''
 
 
     

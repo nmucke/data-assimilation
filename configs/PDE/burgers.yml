@@ -1,0 +1,43 @@
+
+
+particle_filter_args:
+  num_particles: 500
+  ESS_threshold: 0.5
+
+plotting_args:
+  states_to_plot: [0]
+  state_names: ['State']
+  pars_to_plot: [0]
+  par_names: ['Diffusion']
+
+prior_pars:
+  type: 'uniform'
+  lower_bound: [0.5]
+  upper_bound: [1.5]
+  num_pars: 1
+
+model_type: 'PDE'
+backend: 'numpy'
+
+forward_model_args:
+  num_PDE_states: 3
+  model_args:
+    N: 256
+   
+observation_args:
+  noise_variance: 1.0e-2
+  observation_times: [0, 300, 1]
+  full_time_points: [0, 0.3, 300]
+
+observation_operator_args:
+  observation_state_ids: [0]
+  observation_space_ids: [0, 256, 1]
+  full_space_points: [0, 256, 256]
+
+likelihood_args:
+  noise_variance: 1.0e-6
+  multivariate: False
+
+model_error_args:
+  noise_variance: [1.0e-12]
+  
