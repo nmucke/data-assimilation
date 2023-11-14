@@ -246,6 +246,7 @@ class BaseParticleFilter(ABC):
                 x_points=self.observation_operator.full_space_points,
                 pars=pars_ensemble[:, :, -1:]
             )
+            out_state_ensemble = np.expand_dims(out_state_ensemble, axis=-1)
 
             out_pars_ensemble = pars_ensemble[:, :, -1:]
 
