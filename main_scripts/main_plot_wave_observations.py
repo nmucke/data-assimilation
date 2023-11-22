@@ -13,13 +13,13 @@ TEST_CASE = 'wave_submerged_bar'
 
 MODEL_TYPE = 'latent'
 PARTICLE_FILTER_TYPE_LIST = ['bootstrap']
-LOW_FIDELITY_NUM_PARTICLES_LIST = [50, 100, 500, 5000]
+LOW_FIDELITY_NUM_PARTICLES_LIST = [50, 100, 250, 500, 1000, 2500, 5000]
 
 CONFIG_PATH = f'configs/{MODEL_TYPE}/{TEST_CASE}.yml'
 with open(CONFIG_PATH, 'r') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-PLOT_COLORS = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown']
+PLOT_COLORS = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray']
 
 # Initialize observation operator
 observation_operator = ObservationOperator(
@@ -82,8 +82,8 @@ def main():
         for num_particles in LOW_FIDELITY_NUM_PARTICLES_LIST:
             pred_observations_dict[particle_filter_type][num_particles] = {}
 
-            LOW_FIDELITY_LOAD_PATH = f'results/{TEST_CASE}_{MODEL_TYPE}'
-            pred_observations = np.load(f'{LOW_FIDELITY_LOAD_PATH}_{num_particles}_{particle_filter_type}/observations.npz')
+            LOW_FIDELITY_LOAD_PATH = f'results/{MODEL_TYPE}/{TEST_CASE}_{num_particles}_test_case_0'
+            pred_observations = np.load(f'{LOW_FIDELITY_LOAD_PATH}/observations.npz')
             pred_observations = pred_observations['data']
 
             true_observations_i = true_observations[0:pred_observations.shape[-1]].T
@@ -95,17 +95,27 @@ def main():
             observation_RRMSE = np.sqrt(np.mean((pred_observations.mean(axis=0) - true_observations_i)**2))/np.sqrt(np.mean(true_observations_i**2))
             pred_observations_dict[particle_filter_type][num_particles]['observation_RRMSE'] = observation_RRMSE
 
+            pred_observations_dict[particle_filter_type][num_particles]['0.025_quantile'] = np.quantile(pred_observations, 0.025, axis=0)
+            pred_observations_dict[particle_filter_type][num_particles]['0.975_quantile'] = np.quantile(pred_observations, 0.975, axis=0)
+
             # prediction interval coverage probability
             pred_observations_dict[particle_filter_type][num_particles]['coverage'] = np.mean(
-                (pred_observations.mean(axis=0) - 1.96 * pred_observations.std(axis=0) < true_observations_i) * (true_observations_i < pred_observations.mean(axis=0) + 1.96 * pred_observations.std(axis=0))
+                (pred_observations_dict[particle_filter_type][num_particles]['0.025_quantile'] < true_observations_i) * \
+                    (true_observations_i < pred_observations_dict[particle_filter_type][num_particles]['0.975_quantile'])
             )
+
+
+
+            #pred_observations_dict[particle_filter_type][num_particles]['coverage'] = np.mean(
+            #    (pred_observations.mean(axis=0) - 1.96 * pred_observations.std(axis=0) < true_observations_i) * (true_observations_i < pred_observations.mean(axis=0) + 1.96 * pred_observations.std(axis=0))
+            #)
             pred_observations_dict[particle_filter_type][num_particles]['picp'] = pred_observations_dict[particle_filter_type][num_particles]['coverage']
 
             # standard deviation of state   
             pred_observations_dict[particle_filter_type][num_particles]['state_std'] = pred_observations.std(axis=0).mean()/np.sqrt(np.mean(true_observations_i))
 
             # get pars
-            pars = np.load(f'{LOW_FIDELITY_LOAD_PATH}_{num_particles}_{particle_filter_type}/pars.npz')
+            pars = np.load(f'{LOW_FIDELITY_LOAD_PATH}/pars.npz')
             pars = pars['data']
 
             # only take pars that within 3 std of the mean
@@ -162,7 +172,7 @@ def main():
 
     plt.subplot(1, 4, 4)
     for i, num_particles in enumerate(LOW_FIDELITY_NUM_PARTICLES_LIST):
-        plt.hist(pred_observations_dict['bootstrap'][num_particles]['pars'][:], bins=500, alpha=0.2, label=f'{num_particles} particles', density=True, color=PLOT_COLORS[i])
+        plt.hist(pred_observations_dict['bootstrap'][num_particles]['pars'], bins=200, alpha=0.2, label=f'{num_particles} particles', density=True, color=PLOT_COLORS[i])
         plt.axvline(x=pred_observations_dict['bootstrap'][num_particles]['pars'].mean(), color=PLOT_COLORS[i], linestyle='-', linewidth=3)
     plt.legend()
     plt.axvline(x=0.1, color='k', linestyle='-')
@@ -174,8 +184,6 @@ def main():
     plt.ylabel('PICP')
     plt.show()
 
-
-
     plt.figure(figsize=(20,10))
     for i in range(8):
         plt.subplot(4, 2, i + 1)
@@ -184,8 +192,10 @@ def main():
                 plt.plot(t_vec, pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i], '-', linewidth=2, markersize=20, color=PLOT_COLORS[j], label=f'{num_particles} particles, {particle_filter_type}')
                 plt.fill_between(
                     t_vec,
-                    pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i] - 2 * pred_observations_dict[particle_filter_type][num_particles]['observations_std'][i],
-                    pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i] + 2 * pred_observations_dict[particle_filter_type][num_particles]['observations_std'][i],
+                    #pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i] - 2 * pred_observations_dict[particle_filter_type][num_particles]['observations_std'][i],
+                    #pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i] + 2 * pred_observations_dict[particle_filter_type][num_particles]['observations_std'][i],
+                    pred_observations_dict[particle_filter_type][num_particles]['0.025_quantile'][i],
+                    pred_observations_dict[particle_filter_type][num_particles]['0.975_quantile'][i],
                     alpha=0.1,
                     color=PLOT_COLORS[j],
                 )

@@ -43,28 +43,28 @@ torch.backends.cuda.matmul.allow_tf32 = True
 seed_everything(seed=0)
 
 TEST_CASE_INDEX_LIST = [2, 4, 6, 8]
-NUM_PARTICLES_LIST = [30]
+NUM_PARTICLES_LIST = [1000]
 
 PARTICLE_FILTER_TYPE = 'bootstrap'
 
 PHASE = 'multi'
 TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#'burgers'#
 
-MODEL_TYPE = 'latent'
+MODEL_TYPE = 'PDE'
 
 DISTRIBUTED = False
-NUM_WORKERS = 30
+NUM_WORKERS = 100
 
-TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle'
+TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle' if PHASE == 'multi' else 'local'
 ORACLE_PATH = f'{PHASE}_phase/raw_data/test'
 LOCAL_PATH = f'data/{TEST_CASE}/test'
 
 DEVICE = 'cuda'
 
-SAVE_LOCAL_OR_ORACLE = 'oracle'
+SAVE_LOCAL_OR_ORACLE = 'local'
 BUCKET_NAME = 'data_assimilation_results'
 
-SAVE_LEVEL = 0
+SAVE_LEVEL = 1
 
 if MODEL_TYPE == 'PDE':
     PDEForwardModel = importlib.import_module(
@@ -198,7 +198,7 @@ def main():
                 'model_error': model_error,
                 'backend': config['backend'],
                 'save_folder': LOCAL_SAVE_PATH,
-                'save_observations': False,
+                'save_observations': True if PHASE == 'wave' else False,
             }
 
             # Initialize particle filter.
@@ -306,11 +306,12 @@ def main():
                     destination_path=f'{ORACLE_SAVE_PATH}/pars.npz',
                 )
 
-                observations = np.load(f'{LOCAL_SAVE_PATH}/observations.npz')['data']
-                object_storage_client.put_numpy_object(
-                    data=observations,
-                    destination_path=f'{ORACLE_SAVE_PATH}/observations.npz',
-                )
+                if PHASE == 'wave':
+                    observations = np.load(f'{LOCAL_SAVE_PATH}/observations.npz')['data']
+                    object_storage_client.put_numpy_object(
+                        data=observations,
+                        destination_path=f'{ORACLE_SAVE_PATH}/observations.npz',
+                    )
 
 
                 if SAVE_LEVEL == 1:
