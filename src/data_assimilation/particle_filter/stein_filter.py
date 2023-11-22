@@ -48,7 +48,7 @@ class SVGD:
         X = X.detach().requires_grad_(True)
 
         log_prob = self.log_prob(X)
-        score_func = torch.autograd.grad(log_prob.sum(), X)[0]
+        score_func = torch.autograd.grad(log_prob.sum(), X, retain_graph=True)[0]
 
         K_XX = self.K(X, X.detach())
         grad_K = -torch.autograd.grad(K_XX.sum(), X)[0]
@@ -115,6 +115,7 @@ class SteinFilter(BaseParticleFilter):
 
         return state_ensemble
     
+    '''
     def _get_likelihood_gradient(
         self, 
         ensemble, 
@@ -150,13 +151,11 @@ class SteinFilter(BaseParticleFilter):
         )
         likelihood = torch.log(likelihood)#.sum()
 
-        '''
         # Compute the gradient of the likelihood
         likelihood_gradient = torch.autograd.grad(
             outputs=likelihood,
             inputs=ensemble,
         )[0]
-        '''
 
         # normal distribution prior
         dist = torch.distributions.normal.Normal(0.5, 0.75)
@@ -172,6 +171,97 @@ class SteinFilter(BaseParticleFilter):
 
 
         return likelihood + prior
+    '''
+
+    def _get_likelihood(
+        self, 
+        ensemble, 
+        observations, 
+        t_range,
+    ):
+        
+        state_old = ensemble[:, :-self.forward_model.num_pars]
+        state_old = state_old.reshape(state_old.shape[0], self.forward_model.latent_dim, -1)
+
+        pars_old = ensemble[:, -self.forward_model.num_pars:]
+        pars_old = pars_old.reshape(pars_old.shape[0], self.forward_model.num_pars, -1)
+
+        state_with_noise, pars_with_noise = self.model_error.add_model_error(
+            state_ensemble=state_old,
+            pars_ensemble=pars_old,
+        )
+
+        # Compute the prior particles
+        state_with_noise_pred, _ = self.forward_model.compute_forward_model(
+            state_ensemble=state_with_noise,
+            pars_ensemble=pars_with_noise[:, :, -1],
+            output_seq_len=1,
+            with_grad=True,
+        )
+        state_with_noise = torch.cat([state_with_noise, state_with_noise_pred], dim=-1)
+
+        state_old_pred, _ = self.forward_model.compute_forward_model(
+            state_ensemble=state_old,
+            pars_ensemble=pars_old[:, :, -1],
+            output_seq_len=1,
+            with_grad=True,
+        )
+        state_old = torch.cat([state_old, state_old_pred], dim=-1)
+        
+        # Transform the state
+        state_transformed = self.forward_model.transform_state(
+            state=state_old[:, :, -1:],
+            x_points=self.observation_operator.full_space_points,
+            pars=pars_old[:, :, -1],
+            numpy=False,
+            with_grad=True,
+        )
+
+        # Compute the likelihood
+        likelihood = self.likelihood.compute_likelihood(
+            state=state_transformed,
+            observations=observations,
+        )
+        
+        state_residual = state_with_noise - state_old
+        pars_residual = pars_old - pars_with_noise
+
+        state_prior = 0
+        for i in range(state_residual.shape[-1]):
+            state_prior = state_prior + self.model_error.state_error_distribution.log_prob(state_residual[:, :, i])
+        #state_prior = torch.exp(state_prior)
+
+        pars_prior = self.model_error.parameter_error_distribution.log_prob(pars_residual[:, :, 0])
+        #pars_prior = torch.exp(pars_prior)
+
+        likelihood = torch.log(likelihood)# + state_prior + pars_prior
+        likelihood = torch.exp(likelihood)
+
+        return likelihood
+    
+    def _get_likelihood_gradient(
+        self,
+        ensemble,
+        observations,
+        t_range,
+    ):
+        
+        ensemble.requires_grad = True
+
+        likelihood = self._get_likelihood(
+            ensemble=ensemble,
+            observations=observations,
+            t_range=t_range,
+        )
+
+        likelihood_gradient = torch.autograd.grad(
+            outputs=likelihood.sum(),
+            inputs=ensemble,
+            retain_graph=True,
+        )[0]
+
+        return likelihood_gradient
+        
 
 
     def _get_posterior(
@@ -196,6 +286,8 @@ class SteinFilter(BaseParticleFilter):
         pars = pars_ensemble[:, :, -1].clone().to(ensemble.device)
 
         ensemble = torch.cat([ensemble, pars], dim=1) 
+
+        ensemble.requires_grad = True
 
         score_function = lambda x: self._get_likelihood_gradient(
             ensemble=x,

@@ -131,10 +131,8 @@ class LatentModelError(BaseModelError):
         return state_ensemble, pars_ensemble 
     
     def update(self, state_ensemble, pars_ensemble):
-        pass
-        '''
-
         self.counter += 1
+        '''
         
         C = torch.cov(state_ensemble[:, :, -1].T)
 
@@ -146,7 +144,7 @@ class LatentModelError(BaseModelError):
             )
         
         
-        self.parameter_covariance = 1/self.counter * torch.cov(pars_ensemble[:, :].T) + 1e-12*torch.eye(self.num_params)
+        self.parameter_covariance = 1/np.sqrt(self.counter) * self.parameter_covariance#torch.cov(pars_ensemble[:, :].T) + 1e-12*torch.eye(self.num_params)
         self.parameter_error_distribution = \
             MultivariateNormal(
                 loc=torch.zeros(self.num_params), covariance_matrix=self.parameter_covariance

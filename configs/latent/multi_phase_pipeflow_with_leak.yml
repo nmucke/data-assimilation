@@ -1,7 +1,7 @@
 
 
 particle_filter_args:
-  num_particles: 5000
+  num_particles: 50
   ESS_threshold: 0.5
 
 
@@ -26,7 +26,7 @@ forward_model_args:
   PDE_step_size: 0.01
   space_dim: 512
   x_max: 5000
-  batch_size: 128
+  batch_size: 1024
   num_PDE_states: 3
   num_pars: 2
   initial_condition_path: data/multi_phase_pipeflow_with_leak/initial_conditions
@@ -40,7 +40,7 @@ forward_model_args:
     phase: 'multi'
 
 observation_args:
-  noise_variance: 5.0e-5
+  noise_variance: 1.0e-5
   observation_times: [400, 12000, 400]
   full_time_points: [0, 180, 18000]
 
@@ -53,7 +53,8 @@ likelihood_args:
   noise_variance: 1.0e-4
   multivariate: True
 
+
 model_error_args:
-  state_noise_variance: 1.0e-6
-  parameter_noise_variance: [1.0e-7, 1.0e-7]
+  state_noise_variance: 1.0e-12
+  parameter_noise_variance: [1.0e-10, 1.0e-10]
   

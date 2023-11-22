@@ -2,6 +2,8 @@ import pdb
 import numpy as np
 import pandas as pd
 import torch
+import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 
 from data_assimilation.particle_filter.base import BaseObservationOperator
 
@@ -31,7 +33,7 @@ class TrueSolution():
             )
 
         if observation_file is not None:
-            observations_file = pd.read_csv(observation_file, index_col=0).values
+            observations_file = pd.read_csv(observation_file).values
 
         self.num_observation_times = len(self.observation_times)
 
@@ -54,7 +56,9 @@ class TrueSolution():
 
         if observation_file is None:
             self.noise = np.random.normal(
-                loc=0, scale=np.sqrt(self.noise_variance), size=self.observations.shape
+                loc=0, 
+                scale=np.sqrt(self.noise_variance), 
+                size=self.observations.shape,
             )
 
             self.observations += self.noise

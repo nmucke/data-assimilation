@@ -37,7 +37,7 @@ def plot_state_results(
     object_storage_client: ObjectStorageClientWrapper = None,
     plotting_args: dict = None,
 ):
-
+    
     obs = true_solution.observations[:, -1]
 
     x_vec = true_solution.observation_operator.full_space_points
@@ -49,7 +49,6 @@ def plot_state_results(
 
     for state_idx in plotting_args['states_to_plot']:
         save_path_i = f'{save_path}/{plotting_args["state_names"][state_idx]}.png'
-
         plot_state_variable(
             x_vec=x_vec,
             state_mean=state_mean[state_idx, :, -1],
@@ -66,6 +65,8 @@ def plot_state_results(
         else:
             plt.savefig(save_path_i)
         plt.close()
+
+
 
 def plot_observation_results(
     obs_ensemble: np.ndarray,

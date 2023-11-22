@@ -97,6 +97,7 @@ class Likelihood(BaseLikelihood):
         
         residual = observations - model_observations
 
+
         if self.backend == 'torch':
             if self.multivariate:
                 likelihood = torch.exp(self.likelihood_distribution.log_prob(residual))

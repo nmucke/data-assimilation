@@ -26,7 +26,7 @@ forward_model_args:
   PDE_step_size: 0.03535
   space_dim: 512
   x_max: 25.6
-  batch_size: 64
+  batch_size: 128
   num_PDE_states: 2
   num_pars: 1
   initial_condition_path: 'data/wave_submerged_bar/initial_conditions'
@@ -40,23 +40,21 @@ forward_model_args:
     phase: 'wave'
 
 observation_args:
-  observation_file: #'data/wave_submerged_bar/observations/observations.csv'
+  observation_file: 'data/wave_submerged_bar/observations/observations.csv'
   noise_variance: 5.0e-12
-  observation_times: [300, 1200, 5]
+  observation_times: [100, 1100, 25]
   full_time_points: [0, 45, 1273]
 
 observation_operator_args:
   observation_state_ids: [0]
-  #observation_space_ids: [2, 25.6, 50]
   observation_space_ids: [79, 209, 269, 289, 313, 345, 379, 419]
-  #observation_space_ids: [74, 204, 264, 284, 308, 340, 374, 414]
   full_space_points: [0.05, 25.6, 512]
 
 likelihood_args:
-  noise_variance: 1.0e-4
+  noise_variance: 5.0e-3
   multivariate: True
 
 model_error_args:
-  state_noise_variance: 1.0e-7
-  parameter_noise_variance: [1.0e-7]
+  state_noise_variance: 1.0e-1
+  parameter_noise_variance: [1.0e-1]
   

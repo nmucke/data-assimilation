@@ -12,6 +12,14 @@ from latent_time_stepping.AE_models.encoder_decoder import Decoder, Encoder
 from latent_time_stepping.time_stepping_models.parameter_encoder import ParameterEncoder
 from latent_time_stepping.time_stepping_models.time_stepping_model import TimeSteppingModel
 
+def seed_everything(seed=0):
+    """Seed everything for reproducibility"""
+
+    # Set the random seed manually for reproducibility.
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 def create_directory(directory):
     """Creates a directory if it doesn't exist"""

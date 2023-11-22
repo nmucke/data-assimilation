@@ -95,6 +95,7 @@ class BaseParticleFilter(ABC):
         model_error: BaseModelError,
         backend: str = 'numpy',
         save_folder: str = None,
+        save_observations: bool = False,
         ) -> None:
         
         super().__init__()
@@ -110,12 +111,16 @@ class BaseParticleFilter(ABC):
         self.model_error = model_error
         self.model_type = self.forward_model.model_type
         self.save_folder = save_folder
+        self.save_observations = save_observations
 
         self.state_save_folder = self.save_folder + '/state'
         self.pars_save_folder = self.save_folder + '/pars'
 
         create_directory(self.state_save_folder)
         create_directory(self.pars_save_folder)
+
+        if self.save_observations:
+            self.pred_observations = []
 
         if self.model_type in ['FNO', 'latent']:
             self.num_previous_steps = self.forward_model.num_previous_steps
@@ -165,14 +170,32 @@ class BaseParticleFilter(ABC):
             bar_format = "{desc}: {percentage:.2f}%|{bar:20}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}]"#
         )
 
-        #state_observations = []
+        if self.save_observations:
+            observations_to_save = []
+            for i in range(self.num_particles):
+                state_ensemble_transformed = self.forward_model.transform_state(
+                    state=state_ensemble[i:i+1],
+                    x_points=self.observation_operator.full_space_points,
+                    pars=pars_ensemble[i:i+1, :, -1],
+                    numpy=True if self.backend == 'numpy' else False,
+                ).detach().cpu()
+                observations_time_to_save = []
+                for j in range(state_ensemble_transformed.shape[-1]):
+                    observations_time_to_save.append(
+                        self.observation_operator.get_observations(
+                            state=state_ensemble_transformed[0, :, :, j],
+                            ensemble=False
+                        ).detach().cpu().numpy()
+                    )
+                observations_time_to_save = np.stack(observations_time_to_save, axis=-1)
+                observations_to_save.append(observations_time_to_save)
+
+            observations_to_save = np.stack(observations_to_save, axis=0)
+            self.pred_observations.append(observations_to_save)
+
 
         for i, t_new in pbar:
             
-            #if ray.is_initialized():
-            #    ray.shutdown()
-            #if distributed:
-            #    ray.init(num_cpus=num_workers)
             posterior_state_ensemble, posterior_pars_ensemble = \
                 self._get_posterior(
                     state_ensemble=state_ensemble,
@@ -180,15 +203,6 @@ class BaseParticleFilter(ABC):
                     observations=true_solution.observations[:, i],
                     t_range=[t_old, t_new],
                 )
-            
-            '''
-            observations = self.observation_operator.get_observations(
-                posterior_state_ensemble,
-                ensemble=True,
-            )
-
-            state_observations.append(observations)
-            '''
 
             t_old = t_new
 
@@ -252,6 +266,14 @@ class BaseParticleFilter(ABC):
 
         #if ray.is_initialized():
         #    ray.shutdown()
+
+        if self.save_observations:
+            self.pred_observations = np.concatenate(self.pred_observations, axis=-1)
+            
+            np.savez_compressed(
+                f'{self.save_folder}/observations.npz', 
+                data=self.pred_observations
+            )
 
         return out_state_ensemble, out_pars_ensemble, 0
 

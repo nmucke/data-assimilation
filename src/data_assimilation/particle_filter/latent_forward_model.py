@@ -122,7 +122,7 @@ class LatentForwardModel(BaseForwardModel):
             config=config,
             device=device,
         )
-        self.time_stepping_model.eval()
+        self.time_stepping_model.train(False)
 
 
         ##### Load preoprocesser #####
@@ -135,21 +135,33 @@ class LatentForwardModel(BaseForwardModel):
     def update_params(self, params):
         pass
     
-    def transform_state(self, state, x_points, pars, numpy=False):
-        out_state = torch.zeros(
-            (self.num_particles, self.num_PDE_states, self.space_dim, 1),
-            dtype=torch.float32,
-        )
+    def transform_state(
+        self, 
+        state, 
+        x_points, 
+        pars, 
+        numpy=False,
+        with_grad=False,
+    ):
 
-        for batch_idx in range(0, self.num_particles, self.batch_size):
-            
-            batch_state = state[batch_idx:batch_idx+self.batch_size].to(self.device)
-            batch_pars = pars[batch_idx:batch_idx+self.batch_size].to(self.device)
+        out_state = []
 
-            batch_state = self.AE_model.decode(batch_state, batch_pars)
+        for batch_idx in range(0, state.shape[0], self.batch_size):
 
-            out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
+            batch_ids = np.arange(batch_idx, min(batch_idx+self.batch_size, state.shape[0])) 
+            batch_state = state[batch_ids].to(self.device)
+            batch_pars = pars[batch_ids].to(self.device)
 
+            if with_grad:
+                batch_state = self.AE_model.decode(batch_state, batch_pars)
+            else:
+                with torch.no_grad():
+                    batch_state = self.AE_model.decode(batch_state, batch_pars)
+
+            #out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
+            out_state.append(batch_state.cpu())
+
+        out_state = torch.cat(out_state, dim=0)
         out_state = self.preprocesssor.inverse_transform_state(out_state, ensemble=True)
 
         if numpy:
@@ -181,14 +193,8 @@ class LatentForwardModel(BaseForwardModel):
             num_workers=4,
         )
 
-        out_state = torch.zeros(
-            (self.num_particles, self.latent_dim, self.num_previous_steps),
-            dtype=torch.float32,
-        )
-        pars = np.zeros(
-            (self.num_particles, self.num_pars),
-            dtype=np.float32,
-        )
+        out_state = []
+        pars = []
         with torch.no_grad():
             for batch_idx, (batch_state, batch_pars) in enumerate(initial_condition_loader):
                     
@@ -199,54 +205,16 @@ class LatentForwardModel(BaseForwardModel):
 
                 batch_state = self.AE_model.encode(batch_state)
 
-                out_state[batch_idx*self.batch_size:batch_idx*self.batch_size+self.batch_size] = batch_state.cpu()
-                pars[batch_idx*self.batch_size:batch_idx*self.batch_size+self.batch_size] = batch_pars.cpu()
+                out_state.append(batch_state.cpu())
+                pars.append(batch_pars.cpu())
 
-        pars = torch.tensor(pars, dtype=torch.float32)#, device=self.device)
+        out_state = torch.cat(out_state, dim=0)
+        pars = torch.cat(pars, dim=0)
+
+        #pars = torch.tensor(pars, dtype=torch.float32)#, device=self.device)
         pars = self.preprocesssor.transform_pars(pars, ensemble=True)
         pars = pars.unsqueeze(-1)
         pars = pars.repeat(1, 1, out_state.shape[-1])
-
-
-        '''
-
-        pars = np.zeros(
-            (self.num_particles, self.num_pars),
-            dtype=np.float32,
-        )
-
-        out_state = torch.zeros(
-            (self.num_particles, self.latent_dim, self.num_previous_steps),
-            dtype=torch.float32,
-        )
-        for batch_idx in range(0, self.num_particles, self.batch_size):
-
-            batch_state = np.zeros(
-                (self.batch_size, self.num_PDE_states, self.space_dim, self.num_previous_steps),
-                dtype=np.float32,
-            )
-
-            for i, idx in enumerate(range(batch_idx, batch_idx+self.batch_size)): 
-                
-                state_i = loadmat(f'{self.initial_condition_path}/state/sample_{idx}.mat')['state']
-                batch_state[i] = state_i[:, :, 0:self.num_previous_steps]
-
-                pars_i = loadmat(f'{self.initial_condition_path}/pars/sample_{idx}.mat')['pars'][0]
-                pars[i] = pars_i
-            
-            batch_state = torch.tensor(batch_state, dtype=torch.float32)
-            batch_state = self.preprocesssor.transform_state(batch_state, ensemble=True)
-            pdb.set_trace()
-            batch_state = batch_state.to(self.device)
-            batch_state = self.AE_model.encode(batch_state)
-            
-            out_state[batch_idx:batch_idx+self.batch_size] = batch_state.cpu()
-        
-        pars = torch.tensor(pars, dtype=torch.float32)#, device=self.device)
-        pars = self.preprocesssor.transform_pars(pars, ensemble=True)
-        pars = pars.unsqueeze(-1)
-        pars = pars.repeat(1, 1, out_state.shape[-1])
-        '''
 
         return out_state, pars
 
@@ -262,22 +230,45 @@ class LatentForwardModel(BaseForwardModel):
         if output_seq_len is None:
             output_seq_len = int((t_range[-1] - t_range[0]) // self.step_size)
 
-        out_state = torch.zeros(
-            (self.num_particles, self.latent_dim, output_seq_len),
-            dtype=torch.float32,
-        )
+        out_state = []
+        for batch_idx in range(0, state_ensemble.shape[0], self.batch_size):
 
-        with torch.no_grad():
-            for batch_idx in range(0, self.num_particles, self.batch_size):
-                batch_state = state_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
-                batch_pars = pars_ensemble[batch_idx:batch_idx+self.batch_size].to(self.device)
+            batch_ids = np.arange(batch_idx, min(batch_idx+self.batch_size, state_ensemble.shape[0])) 
+            batch_state = state_ensemble[batch_ids].to(self.device)
+            batch_pars = pars_ensemble[batch_ids].to(self.device)
+            
+            if with_grad:
 
-                batch_state_ensemble = self.time_stepping_model.multistep_prediction(
+                batch_state = self.time_stepping_model.multistep_prediction(
                     input=batch_state, 
                     pars=batch_pars, 
                     output_seq_len=output_seq_len,
                 )
+                out_state.append(batch_state.cpu())
+            else:
+                with torch.no_grad():
+                    batch_state = self.time_stepping_model.multistep_prediction(
+                        input=batch_state, 
+                        pars=batch_pars, 
+                        output_seq_len=output_seq_len,
+                    )
+                    out_state.append(batch_state.cpu())
 
-                out_state[batch_idx:batch_idx+self.batch_size] = batch_state_ensemble.cpu()
-
+        out_state = torch.cat(out_state, dim=0)
+        '''
+        (Pdb++) out_state[0:10, 0, -1]
+        tensor([-0.3432,  0.4632, -1.0413,  0.1121, -1.0978,  0.6770,  1.2399,  0.5092,
+         0.3816,  0.2916])
+         tensor([-0.3434,  0.4640, -1.0406,  0.1132, -1.0985,  0.6789,  1.2413,  0.5111,
+         0.3822,  0.2914])
+         tensor([-0.3425,  0.4644, -1.0412,  0.1125, -1.0968,  0.6802,  1.2417,  0.5117,
+         0.3822,  0.2918])
+        
+         tensor([-0.3432,  0.4632, -1.0413,  0.1121, -1.0978,  0.6770,  1.2399,  0.5092,
+         0.3816,  0.2916])
+         tensor([-0.3432,  0.4632, -1.0413,  0.1121, -1.0978,  0.6770,  1.2399,  0.5092,
+         0.3816,  0.2916])
+         tensor([-0.3434,  0.4640, -1.0406,  0.1132, -1.0985,  0.6789,  1.2413,  0.5111,
+         0.3822,  0.2914])
+        '''
         return out_state, output_seq_len*self.step_size
