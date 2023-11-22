@@ -59,8 +59,8 @@ forward_model_args:
       state_or_flux: {'left': 'flux', 'right': 'state'}
 
 observation_args:
-  noise_variance: 5.0e-5
-  observation_times: [400, 12000, 400]
+  noise_variance: 1.0e-5
+  observation_times: [400, 800, 400]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:
@@ -71,6 +71,7 @@ observation_operator_args:
 likelihood_args:
   noise_variance: 1.0e-4
   multivariate: True
+
 
 model_error_args:
   noise_variance: [1.0e-9, 1.0e-9, 1.0e-9]

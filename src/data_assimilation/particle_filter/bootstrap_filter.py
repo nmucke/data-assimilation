@@ -133,33 +133,29 @@ class BootstrapFilter(BaseParticleFilter):
             
         if self.save_observations:
             observations_to_save = []
-            for i in range(0, self.num_particles, self.forward_model.batch_size):
-
-                batch_ids = np.arange(i, min(i+self.forward_model.batch_size, self.num_particles)) 
-
+            for i in range(self.num_particles):
                 state_ensemble_transformed = self.forward_model.transform_state(
-                    state=state_ensemble[batch_ids],
+                    state=state_ensemble[i:i+1],
                     x_points=self.observation_operator.full_space_points,
-                    pars=pars_ensemble[batch_ids, :, -1],
+                    pars=pars_ensemble[i:i+1, :, -1],
                     numpy=True if self.backend == 'numpy' else False,
-                ).detach().cpu()
-                observation_batch_to_save = []
-                for j in range(state_ensemble_transformed.shape[0]):
-                    observations_time_to_save = []
-                    for k in range(state_ensemble_transformed.shape[-1]):
-                        observations_time_to_save.append(
-                            self.observation_operator.get_observations(
-                                state=state_ensemble_transformed[j, :, :, k],
-                                ensemble=False
-                            ).detach().cpu().numpy()
-                        )
-                    observations_time_to_save = np.stack(observations_time_to_save, axis=-1)
+                )
+                if self.backend == 'torch':
+                    state_ensemble_transformed = state_ensemble_transformed.detach().cpu()
+                observations_time_to_save = []
+                for j in range(state_ensemble_transformed.shape[-1]):
+                    obs = self.observation_operator.get_observations(
+                        state=state_ensemble_transformed[0, :, :, j],
+                        ensemble=False
+                    )
 
-                    observation_batch_to_save.append(observations_time_to_save)
-                    
-                observation_batch_to_save = np.stack(observation_batch_to_save, axis=0)
-                observations_to_save.append(observation_batch_to_save)
-            observations_to_save = np.concatenate(observations_to_save, axis=0)
+                    if self.backend == 'torch':
+                        obs.detach().cpu().numpy()
+                    observations_time_to_save.append(obs)
+                observations_time_to_save = np.stack(observations_time_to_save, axis=-1)
+                observations_to_save.append(observations_time_to_save)
+
+            observations_to_save = np.stack(observations_to_save, axis=0)
             self.pred_observations.append(observations_to_save)
         
         

@@ -42,17 +42,17 @@ torch.backends.cuda.matmul.allow_tf32 = True
 # Set random seed.
 seed_everything(seed=0)
 
-TEST_CASE_INDEX_LIST = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-NUM_PARTICLES_LIST = [50, 100, 500, 5000, 10000]
+TEST_CASE_INDEX_LIST = [2, 4, 6, 8]
+NUM_PARTICLES_LIST = [2500]
 
 PARTICLE_FILTER_TYPE = 'bootstrap'
 
 PHASE = 'multi'
 TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#'burgers'#
 
-MODEL_TYPE = 'latent'
+MODEL_TYPE = 'PDE'
 
-DISTRIBUTED = False
+DISTRIBUTED = True
 NUM_WORKERS = 30
 
 TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle'
@@ -64,7 +64,7 @@ DEVICE = 'cuda'
 SAVE_LOCAL_OR_ORACLE = 'oracle'
 BUCKET_NAME = 'data_assimilation_results'
 
-SAVE_LEVEL = 1
+SAVE_LEVEL = 0
 
 if MODEL_TYPE == 'PDE':
     PDEForwardModel = importlib.import_module(

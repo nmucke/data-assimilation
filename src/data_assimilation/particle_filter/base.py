@@ -178,15 +178,19 @@ class BaseParticleFilter(ABC):
                     x_points=self.observation_operator.full_space_points,
                     pars=pars_ensemble[i:i+1, :, -1],
                     numpy=True if self.backend == 'numpy' else False,
-                ).detach().cpu()
+                )
+                if self.backend == 'torch':
+                    state_ensemble_transformed = state_ensemble_transformed.detach().cpu()
                 observations_time_to_save = []
                 for j in range(state_ensemble_transformed.shape[-1]):
-                    observations_time_to_save.append(
-                        self.observation_operator.get_observations(
-                            state=state_ensemble_transformed[0, :, :, j],
-                            ensemble=False
-                        ).detach().cpu().numpy()
+                    obs = self.observation_operator.get_observations(
+                        state=state_ensemble_transformed[0, :, :, j],
+                        ensemble=False
                     )
+
+                    if self.backend == 'torch':
+                        obs.detach().cpu().numpy()
+                    observations_time_to_save.append(obs)
                 observations_time_to_save = np.stack(observations_time_to_save, axis=-1)
                 observations_to_save.append(observations_time_to_save)
 
