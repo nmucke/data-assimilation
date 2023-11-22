@@ -83,10 +83,14 @@ if TEST_CASE == 'multi_phase_pipeflow_with_leak' and MODEL_TYPE == 'PDE':
 elif TEST_CASE == 'burgers' and MODEL_TYPE == 'PDE':
     space_dim = config['forward_model_args']['model_args']['N']
 
+steady_state_args = config['forward_model_args']['model_args']['steady_state']
 def main():
 
     for test_case_index in TEST_CASE_INDEX_LIST:
         for num_particles in NUM_PARTICLES_LIST:
+
+
+            config['forward_model_args']['model_args']['steady_state'] = steady_state_args
 
             if DISTRIBUTED:
                 ray.shutdown()

@@ -60,7 +60,7 @@ forward_model_args:
 
 observation_args:
   noise_variance: 1.0e-5
-  observation_times: [400, 800, 400]
+  observation_times: [400, 8000, 400]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:
