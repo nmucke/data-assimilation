@@ -43,16 +43,16 @@ torch.backends.cuda.matmul.allow_tf32 = True
 seed_everything(seed=0)
 
 TEST_CASE_INDEX_LIST = [2, 4, 6, 8]
-NUM_PARTICLES_LIST = [2500]
+NUM_PARTICLES_LIST = [30]
 
 PARTICLE_FILTER_TYPE = 'bootstrap'
 
 PHASE = 'multi'
 TEST_CASE = 'multi_phase_pipeflow_with_leak'#'wave_submerged_bar'#''lorenz_96'#'burgers'#
 
-MODEL_TYPE = 'PDE'
+MODEL_TYPE = 'latent'
 
-DISTRIBUTED = True
+DISTRIBUTED = False
 NUM_WORKERS = 30
 
 TEST_DATA_FROM_ORACLE_OR_LOCAL = 'oracle'
@@ -198,7 +198,7 @@ def main():
                 'model_error': model_error,
                 'backend': config['backend'],
                 'save_folder': LOCAL_SAVE_PATH,
-                'save_observations': True,
+                'save_observations': False,
             }
 
             # Initialize particle filter.
