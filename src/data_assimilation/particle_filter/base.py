@@ -207,6 +207,10 @@ class BaseParticleFilter(ABC):
 
         for i, t_new in pbar:
             
+            if distributed:
+                ray.init(num_cpus=num_workers, _temp_dir="/home/opc/ray")
+
+            
             posterior_state_ensemble, posterior_pars_ensemble = \
                 self._get_posterior(
                     state_ensemble=state_ensemble,

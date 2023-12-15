@@ -24,7 +24,7 @@ forward_model_args:
     basic_args:
       xmin: 0
       xmax: 5000
-      num_elements: 750
+      num_elements: 700
       num_states: 3
       polynomial_order: 3
       polynomial_type: 'legendre'
@@ -59,8 +59,8 @@ forward_model_args:
       state_or_flux: {'left': 'flux', 'right': 'state'}
 
 observation_args:
-  noise_variance: 1.0e-5
-  observation_times: [400, 800, 400]
+  noise_variance: 1.0e-4
+  observation_times: [400, 12000, 400]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:
@@ -75,4 +75,5 @@ likelihood_args:
 
 model_error_args:
   noise_variance: [1.0e-9, 1.0e-9, 1.0e-9]
+
   
