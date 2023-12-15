@@ -13,7 +13,8 @@ TEST_CASE = 'wave_submerged_bar'
 
 MODEL_TYPE = 'latent'
 PARTICLE_FILTER_TYPE_LIST = ['bootstrap']
-LOW_FIDELITY_NUM_PARTICLES_LIST = [50, 100, 250, 500, 1000, 2500, 5000]
+LOW_FIDELITY_NUM_PARTICLES_LIST = [100, 500, 1000, 5000]
+OBSERVATION_TIME_INTERVAL_LIST = [25, 50, 75]
 
 CONFIG_PATH = f'configs/{MODEL_TYPE}/{TEST_CASE}.yml'
 with open(CONFIG_PATH, 'r') as f:
@@ -69,69 +70,77 @@ def main():
         'data/wave_submerged_bar/observations/observations.csv', 
     ).values
 
-    obs_times_ids = range(
-        config['observation_args']['observation_times'][0],
-        config['observation_args']['observation_times'][1],
-        config['observation_args']['observation_times'][2],
-    )
-
     pred_observations_dict = {}
-
+    
+    burn_in = 300
     for particle_filter_type in PARTICLE_FILTER_TYPE_LIST:
         pred_observations_dict[particle_filter_type] = {}
         for num_particles in LOW_FIDELITY_NUM_PARTICLES_LIST:
             pred_observations_dict[particle_filter_type][num_particles] = {}
+            for observation_time_interval in OBSERVATION_TIME_INTERVAL_LIST:
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval] = {}
 
-            LOW_FIDELITY_LOAD_PATH = f'results/{MODEL_TYPE}/{TEST_CASE}_{num_particles}_test_case_0'
-            pred_observations = np.load(f'{LOW_FIDELITY_LOAD_PATH}/observations.npz')
-            pred_observations = pred_observations['data']
+                LOW_FIDELITY_LOAD_PATH = f'results/{MODEL_TYPE}/{TEST_CASE}_{num_particles}_obs_time_{observation_time_interval}_test_case_0'
+                pred_observations = np.load(f'{LOW_FIDELITY_LOAD_PATH}/observations.npz')
+                pred_observations = pred_observations['data']
 
-            true_observations_i = true_observations[0:pred_observations.shape[-1]].T
+                true_observations_i = true_observations[0:pred_observations.shape[-1]].T
 
-            pred_observations_dict[particle_filter_type][num_particles]['observations'] = pred_observations
-            pred_observations_dict[particle_filter_type][num_particles]['observations_mean'] = pred_observations.mean(axis=0)
-            pred_observations_dict[particle_filter_type][num_particles]['observations_std'] = pred_observations.std(axis=0)
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['observations'] = pred_observations
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['observations_mean'] = pred_observations.mean(axis=0)
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['observations_std'] = pred_observations.std(axis=0)
 
-            observation_RRMSE = np.sqrt(np.mean((pred_observations.mean(axis=0) - true_observations_i)**2))/np.sqrt(np.mean(true_observations_i**2))
-            pred_observations_dict[particle_filter_type][num_particles]['observation_RRMSE'] = observation_RRMSE
+                obs_residuals = pred_observations.mean(axis=0) - true_observations_i
 
-            pred_observations_dict[particle_filter_type][num_particles]['0.025_quantile'] = np.quantile(pred_observations, 0.025, axis=0)
-            pred_observations_dict[particle_filter_type][num_particles]['0.975_quantile'] = np.quantile(pred_observations, 0.975, axis=0)
+                # Compute windowed RRMSE
+                window_size = 75
+                windowed_RRMSE = []
+                for i in range(0, obs_residuals.shape[-1] - window_size):
+                    windowed_RRMSE.append(np.sqrt(np.mean(obs_residuals[:, i:i+window_size]**2))/np.sqrt(np.mean(true_observations_i[:, i:i+window_size]**2)))
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['windowed_RRMSE'] = np.array(windowed_RRMSE)
 
-            # prediction interval coverage probability
-            pred_observations_dict[particle_filter_type][num_particles]['coverage'] = np.mean(
-                (pred_observations_dict[particle_filter_type][num_particles]['0.025_quantile'] < true_observations_i) * \
-                    (true_observations_i < pred_observations_dict[particle_filter_type][num_particles]['0.975_quantile'])
-            )
+                observation_RRMSE = np.sqrt(np.mean(obs_residuals[:, burn_in:]**2))/np.sqrt(np.mean(true_observations_i[:, burn_in:]**2))
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['observation_RRMSE'] = observation_RRMSE
+
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['0.025_quantile'] = np.quantile(pred_observations, 0.025, axis=0)
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['0.975_quantile'] = np.quantile(pred_observations, 0.975, axis=0)
+
+                # prediction interval coverage probability
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['coverage'] = np.mean(
+                    (pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['0.025_quantile'][:, burn_in:] < true_observations_i[:, burn_in:]) * \
+                        (true_observations_i[:, burn_in:] < pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['0.975_quantile'][:, burn_in:])
+                )
+                
+                #pred_observations_dict[particle_filter_type][num_particles]['coverage'] = np.mean(
+                #    (pred_observations.mean(axis=0) - 1.96 * pred_observations.std(axis=0) < true_observations_i) * (true_observations_i < pred_observations.mean(axis=0) + 1.96 * pred_observations.std(axis=0))
+                #)
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['picp'] = pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['coverage']
+
+                # standard deviation of state   
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['state_std'] = pred_observations.std(axis=0).mean()/np.sqrt(np.mean(true_observations_i))
+
+                # get pars
+                pars = np.load(f'{LOW_FIDELITY_LOAD_PATH}/pars.npz')
+                pars = pars['data']
+
+                # only take pars that within 3 std of the mean
+                pars = pars[:, np.abs(pars.mean(axis=0) - true_pars) < 1*pars.std(axis=0)] 
+
+                pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['pars'] = pars
 
 
-
-            #pred_observations_dict[particle_filter_type][num_particles]['coverage'] = np.mean(
-            #    (pred_observations.mean(axis=0) - 1.96 * pred_observations.std(axis=0) < true_observations_i) * (true_observations_i < pred_observations.mean(axis=0) + 1.96 * pred_observations.std(axis=0))
-            #)
-            pred_observations_dict[particle_filter_type][num_particles]['picp'] = pred_observations_dict[particle_filter_type][num_particles]['coverage']
-
-            # standard deviation of state   
-            pred_observations_dict[particle_filter_type][num_particles]['state_std'] = pred_observations.std(axis=0).mean()/np.sqrt(np.mean(true_observations_i))
-
-            # get pars
-            pars = np.load(f'{LOW_FIDELITY_LOAD_PATH}/pars.npz')
-            pars = pars['data']
-
-            # only take pars that within 3 std of the mean
-            pars = pars[:, np.abs(pars.mean(axis=0) - true_pars) < 1*pars.std(axis=0)] 
-
-            pred_observations_dict[particle_filter_type][num_particles]['pars'] = pars
-
-
-
-
-
+    obs_times_ids = range(
+        config['observation_args']['observation_times'][0],
+        pred_observations.shape[-1],
+        config['observation_args']['observation_times'][2],
+    )
     t_vec = t_vec[0:pred_observations.shape[-1]]
     true_observations = true_observations[0:pred_observations.shape[-1]]
 
+    obs_times_ids = obs_times_ids[0:pred_observations.shape[-1]]
     obs_times = t_vec[obs_times_ids]
 
+    '''
     RRMSE_list = []
     PICP_list = []
     std_list = []
@@ -139,37 +148,62 @@ def main():
         RRMSE_list.append(pred_observations_dict['bootstrap'][num_particles]['observation_RRMSE'])
         PICP_list.append(pred_observations_dict['bootstrap'][num_particles]['picp'])
         std_list.append(pred_observations_dict['bootstrap'][num_particles]['state_std'])
+    '''
+
+
+
+    RRMSE_dict = {}
+    PICP_dict = {}
+    windowed_RRMSE_dict = {}
+    for i, observation_time_interval in enumerate(OBSERVATION_TIME_INTERVAL_LIST):
+
+        RRMSE_dict[observation_time_interval] = []
+        PICP_dict[observation_time_interval] = []
+        windowed_RRMSE_dict[observation_time_interval] = []
+        for j, num_particles in enumerate(LOW_FIDELITY_NUM_PARTICLES_LIST):
+            RRMSE_dict[observation_time_interval].append(pred_observations_dict['bootstrap'][num_particles][observation_time_interval]['observation_RRMSE'])
+            PICP_dict[observation_time_interval].append(pred_observations_dict['bootstrap'][num_particles][observation_time_interval]['picp'])
+            windowed_RRMSE_dict[observation_time_interval].append(pred_observations_dict['bootstrap'][num_particles][observation_time_interval]['windowed_RRMSE'])
 
 
     plt.figure()
-    plt.subplot(1, 4, 1)
-    plt.loglog(
-        LOW_FIDELITY_NUM_PARTICLES_LIST,
-        RRMSE_list, 
-        '.-', markersize=20, linewidth=3,
-    )
+    for i, observation_time_interval in enumerate(OBSERVATION_TIME_INTERVAL_LIST):
+        plt.loglog(
+            LOW_FIDELITY_NUM_PARTICLES_LIST,
+            RRMSE_dict[observation_time_interval], 
+            '.-', markersize=20, linewidth=3,
+            label=f'{observation_time_interval} s',
+        )
+    #plt.loglog(
+    #    LOW_FIDELITY_NUM_PARTICLES_LIST,
+    #    RRMSE_list, 
+    #    '.-', markersize=20, linewidth=3,
+    #)
     plt.xlabel('Number of particles')
     plt.ylabel('RRMSE')
+    plt.legend()        
+    plt.grid(True)
+    plt.savefig(f'results/figures/wave_RRMSE')
+    plt.show()
+
     
 
-    plt.subplot(1, 4, 2)
-    plt.loglog(
-        LOW_FIDELITY_NUM_PARTICLES_LIST,
-        PICP_list,
-        '.-', markersize=20, linewidth=3,
-    )
+    plt.figure()
+    for i, observation_time_interval in enumerate(OBSERVATION_TIME_INTERVAL_LIST):
+        plt.loglog(
+            LOW_FIDELITY_NUM_PARTICLES_LIST,
+            PICP_dict[observation_time_interval],
+            '.-', markersize=20, linewidth=3,
+            label=f'{observation_time_interval} s',
+        )
     plt.xlabel('Number of particles')
     plt.ylabel('PICP')
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(f'results/figures/wave_PICP')
+    plt.show()
 
-    plt.subplot(1, 4, 3)
-    plt.loglog(
-        LOW_FIDELITY_NUM_PARTICLES_LIST,
-        std_list,
-        '.-', markersize=20, linewidth=3,
-    )
-    plt.xlabel('Number of particles')
-    plt.ylabel('STD')
-
+    '''
     plt.subplot(1, 4, 4)
     for i, num_particles in enumerate(LOW_FIDELITY_NUM_PARTICLES_LIST):
         plt.hist(pred_observations_dict['bootstrap'][num_particles]['pars'], bins=200, alpha=0.2, label=f'{num_particles} particles', density=True, color=PLOT_COLORS[i])
@@ -178,24 +212,46 @@ def main():
     plt.axvline(x=0.1, color='k', linestyle='-')
     plt.xlim([0.07, 0.13])
     plt.ylim([0, 100])
+    plt.grid(True)
+    '''
 
-    plt.legend()
-    plt.xlabel('Number of particles')
-    plt.ylabel('PICP')
+    plt.figure(figsize=(20,10))
+    for i, observation_time_interval in enumerate(OBSERVATION_TIME_INTERVAL_LIST):
+
+        plt.subplot(3, 1, i+1)
+        for j, num_particles in enumerate(LOW_FIDELITY_NUM_PARTICLES_LIST):
+            plt.semilogy(
+                pred_observations_dict['bootstrap'][num_particles][observation_time_interval]['windowed_RRMSE'], 
+                label=f'{num_particles} particles', 
+                color=PLOT_COLORS[j], linewidth=3
+            )
+            plt.title(f'Observations every {observation_time_interval} s')
+            
+            plt.xlabel('Time')
+            plt.ylabel('Windowed RRMSE')
+            plt.legend(loc='lower left')
+            plt.xlim([300, 850])
+            plt.ylim([1.5e-1, 7.5e-1])
+            plt.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(f'results/figures/wave_windowed_RRMSE')
     plt.show()
 
     plt.figure(figsize=(20,10))
+    observation_time_interval = 75
     for i in range(8):
         plt.subplot(4, 2, i + 1)
         for k, particle_filter_type in enumerate(PARTICLE_FILTER_TYPE_LIST):
             for j, num_particles in enumerate(LOW_FIDELITY_NUM_PARTICLES_LIST):
-                plt.plot(t_vec, pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i], '-', linewidth=2, markersize=20, color=PLOT_COLORS[j], label=f'{num_particles} particles, {particle_filter_type}')
+                plt.plot(
+                    t_vec, pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['observations_mean'][i],
+                    '-', linewidth=2, markersize=20, color=PLOT_COLORS[j], label=f'{num_particles} particles, {particle_filter_type}'
+                )
                 plt.fill_between(
                     t_vec,
-                    #pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i] - 2 * pred_observations_dict[particle_filter_type][num_particles]['observations_std'][i],
-                    #pred_observations_dict[particle_filter_type][num_particles]['observations_mean'][i] + 2 * pred_observations_dict[particle_filter_type][num_particles]['observations_std'][i],
-                    pred_observations_dict[particle_filter_type][num_particles]['0.025_quantile'][i],
-                    pred_observations_dict[particle_filter_type][num_particles]['0.975_quantile'][i],
+                    pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['0.025_quantile'][i],
+                    pred_observations_dict[particle_filter_type][num_particles][observation_time_interval]['0.975_quantile'][i],
                     alpha=0.1,
                     color=PLOT_COLORS[j],
                 )
@@ -203,11 +259,15 @@ def main():
         plt.plot(t_vec, true_observations[:, i], '--', color='black', label='True', linewidth=3, markersize=20)
         plt.plot(obs_times, true_observations[obs_times_ids, i], '.', color='tab:red', markersize=15)
         #plt.plot(t_vec, true_solution.observations[i, 0:len(t_vec)], '--', color='tab:red')        
-        plt.xlim([20, 37])
-    plt.xlabel('Time [s]')
-    plt.ylabel('Wave Height')
-    plt.legend()
-    plt.grid()
+        plt.grid(True)
+        if i == 0:
+            plt.legend()
+        plt.xlim([25, 30])
+    #plt.xlabel('Time [s]')
+    #plt.ylabel('Wave Height')
+    #plt.legend()
+    #plt.grid(True)
+    plt.savefig(f'results/figures/wave_observations')
     plt.show()
     
 

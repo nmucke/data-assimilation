@@ -70,7 +70,6 @@ class PDEForwardModel(BaseForwardModel):
         self.model.update_parameters(params)
     
     def transform_state(self, state, x_points, pars, **kwargs):
-
         return state
             
     def initialize_state(self, pars):

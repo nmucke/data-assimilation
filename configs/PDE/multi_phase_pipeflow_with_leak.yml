@@ -24,9 +24,9 @@ forward_model_args:
     basic_args:
       xmin: 0
       xmax: 5000
-      num_elements: 400
+      num_elements: 750
       num_states: 3
-      polynomial_order: 2
+      polynomial_order: 3
       polynomial_type: 'legendre'
 
     steady_state:
@@ -60,7 +60,7 @@ forward_model_args:
 
 observation_args:
   noise_variance: 1.0e-5
-  observation_times: [400, 8000, 400]
+  observation_times: [400, 800, 400]
   full_time_points: [0, 180, 18000]
 
 observation_operator_args:

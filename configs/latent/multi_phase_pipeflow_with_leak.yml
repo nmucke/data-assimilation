@@ -55,6 +55,6 @@ likelihood_args:
 
 
 model_error_args:
-  state_noise_variance: 1.0e-12
-  parameter_noise_variance: [1.0e-10, 1.0e-10]
+  state_noise_variance: 1.0e-6
+  parameter_noise_variance: [1.0e-8, 1.0e-10]
   

@@ -26,16 +26,16 @@ forward_model_args:
    
 observation_args:
   noise_variance: 1.0e-2
-  observation_times: [0, 300, 1]
+  observation_times: [1, 300, 10]
   full_time_points: [0, 0.3, 300]
 
 observation_operator_args:
   observation_state_ids: [0]
-  observation_space_ids: [0, 256, 1]
+  observation_space_ids: [0, 256, 5]
   full_space_points: [0, 256, 256]
 
 likelihood_args:
-  noise_variance: 1.0e-6
+  noise_variance: 1.0e-4
   multivariate: False
 
 model_error_args:

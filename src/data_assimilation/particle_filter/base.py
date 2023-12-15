@@ -148,6 +148,12 @@ class BaseParticleFilter(ABC):
         num_workers = 1,
     ):
         """Compute the filtered solution."""
+
+
+
+        #if distributed:
+        #    ray.shutdown()
+        #    ray.init(num_cpus=num_workers, _temp_dir='/export/scratch2/ntm/ray')
         
         state_ensemble, pars_ensemble = self._initialize_particles(pars=init_pars)
         t_old = 0      
@@ -181,6 +187,7 @@ class BaseParticleFilter(ABC):
                 )
                 if self.backend == 'torch':
                     state_ensemble_transformed = state_ensemble_transformed.detach().cpu()
+
                 observations_time_to_save = []
                 for j in range(state_ensemble_transformed.shape[-1]):
                     obs = self.observation_operator.get_observations(
@@ -211,6 +218,26 @@ class BaseParticleFilter(ABC):
             t_old = t_new
 
             if self.model_type in ['latent', 'neural_network']: 
+                '''
+                if posterior_state_ensemble.shape[-1] < self.num_previous_steps:
+                    posterior_state_ensemble = torch.cat(
+                        [
+                            state_ensemble,
+                            posterior_state_ensemble
+                        ],
+                        dim=-1
+                    )
+                    posterior_pars_ensemble = torch.cat(
+                        [
+                            pars_ensemble,
+                            posterior_pars_ensemble
+                        ],
+                        dim=-1
+                    )
+                    #posterior_pars_ensemble = posterior_pars_ensemble[:, :, -self.num_previous_steps:]
+                '''
+
+
                 state_ensemble = posterior_state_ensemble[:, :, -self.num_previous_steps:]
                 pars_ensemble = posterior_pars_ensemble[:, :, -self.num_previous_steps:]
                 
@@ -254,13 +281,15 @@ class BaseParticleFilter(ABC):
                 pars=pars_ensemble[:, :, -1]
             ).detach().unsqueeze(-1).numpy()
 
+
+
             out_pars_ensemble = self.forward_model.transform_pars(
                 pars_ensemble[:, :, -1:]                                                                                                                   
             )
 
         elif self.model_type in ['PDE', 'FNO']:
             out_state_ensemble = self.forward_model.transform_state(
-                posterior_state_ensemble[:, :, :, -1:],
+                posterior_state_ensemble[:, :, :, -1],
                 x_points=self.observation_operator.full_space_points,
                 pars=pars_ensemble[:, :, -1:]
             )

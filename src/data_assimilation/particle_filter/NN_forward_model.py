@@ -39,14 +39,14 @@ class LoadInitialCondition(Dataset):
 
             if self.matlab:
                 state = loadmat(f'{self.initial_condition_path}/state/sample_{idx}.mat')['state']
-                state = state[:, :, -self.num_previous_steps:]
+                state = state[:, :, 0:self.num_previous_steps]
         
                 pars = loadmat(f'{self.initial_condition_path}/pars/sample_{idx}.mat')['pars'][0]
 
             else:
 
                 state = np.load(f'{self.initial_condition_path}/state/sample_{idx}.npz')
-                state = state['data'][:, :, -self.num_previous_steps:]
+                state = state['data'][:, :, 0:self.num_previous_steps]
 
                 pars = np.load(f'{self.initial_condition_path}/pars/sample_{idx}.npz')
                 pars = pars['data']

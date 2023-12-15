@@ -1,0 +1,61 @@
+
+
+particle_filter_args:
+  num_particles: 50
+  ESS_threshold: 0.5
+
+
+plotting_args:
+  states_to_plot: [0, 1, 2]
+  state_names: ['Hold up', 'Pressure', 'Velocity']
+  pars_to_plot: [0, 1]
+  par_names: ['Leak location', 'Leak size']
+
+
+prior_pars:
+  type: 'uniform'
+  lower_bound: [10.0, 1.]
+  upper_bound: [4990, 2.]
+  num_pars: 2
+
+model_type: 'latent'
+backend: 'torch'
+
+forward_model_args:
+  num_skip_steps: 10
+  PDE_step_size: 0.01
+  space_dim: 512
+  x_max: 5000
+  batch_size: 1024
+  num_PDE_states: 3
+  num_pars: 2
+  initial_condition_path: data/multi_phase_pipeflow_with_leak/initial_conditions
+  matlab: False
+  model_args:
+    AE_model_type: 'WAE'
+    AE_model_path: 'multi_phase/autoencoders/AE_no_reg'
+    time_stepping_model_path: 'multi_phase/time_steppers/transformer_AE_no_reg'
+    preprocessor_path: 'multi_phase/preprocessor.pkl'
+    num_previous_steps: 32
+    phase: 'multi'
+
+observation_args:
+  noise_variance: 1.0e-5
+  observation_times: [400, 12000, 400]
+  full_time_points: [0, 180, 18000]
+
+observation_operator_args:
+  observation_state_ids: [1]
+  observation_space_ids: [50, 100,  150, 200,  250, 300, 350, 400,  450]
+  full_space_points: [0, 5000, 512]
+
+likelihood_args:
+  noise_variance: 1.0e-4
+  multivariate: True
+
+
+
+model_error_args:
+  state_noise_variance: 1.0e-6
+  parameter_noise_variance: [1.0e-8, 1.0e-8]
+  

@@ -127,6 +127,7 @@ class LatentModelError(BaseModelError):
         pars_ensemble = pars_ensemble.clone()
         parameter_noise = self.parameter_error_distribution.sample((pars_ensemble.shape[0],))
         pars_ensemble[:, : , -1] = pars_ensemble[:, : , -1] + parameter_noise.to(pars_ensemble.device)
+        
 
         return state_ensemble, pars_ensemble 
     

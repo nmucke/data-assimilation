@@ -63,13 +63,12 @@ class BootstrapFilter(BaseParticleFilter):
         t_range,
     ):
         
-        self.model_error.update(
-            state_ensemble=\
-                state_ensemble[:, :, :, -1] if self.model_type in ['PDE', 'FNO'] else \
-                state_ensemble[:, :, -self.num_previous_steps:],
-            pars_ensemble=pars_ensemble[:, :, -1],
-        )
-
+        #self.model_error.update(
+        #    state_ensemble=\
+        #        state_ensemble[:, :, :, -1] if self.model_type in ['PDE', 'FNO'] else \
+        #        state_ensemble[:, :, -self.num_previous_steps:],
+        #    pars_ensemble=pars_ensemble[:, :, -1],
+        #)
         state_ensemble, pars_ensemble = self.model_error.add_model_error(
             state_ensemble=\
                 state_ensemble[:, :, :, -1] if self.model_type in ['PDE', 'FNO'] else \
@@ -81,13 +80,35 @@ class BootstrapFilter(BaseParticleFilter):
             state_ensemble = torch.tensor(state_ensemble).unsqueeze(-1)
             pars_ensemble = pars_ensemble.clone().detach()
                 
-        state_ensemble, t_vec = self.forward_model.compute_forward_model(
+        state_ensemble_new, t_vec = self.forward_model.compute_forward_model(
             state_ensemble=\
                 state_ensemble if self.model_type in ['PDE', 'FNO'] else \
                 state_ensemble[:, :, -self.num_previous_steps:],
             pars_ensemble=pars_ensemble[:, :, -1],
             t_range=t_range,
         )
+        if self.model_type in ['latent']:
+            state_ensemble_new, t_vec = self.forward_model.compute_forward_model(
+                state_ensemble=state_ensemble[:, :, -self.num_previous_steps:],
+                pars_ensemble=pars_ensemble[:, :, -1],
+                t_range=t_range,
+            )
+            if state_ensemble_new.shape[-1] < self.num_previous_steps:
+                state_ensemble = torch.cat(
+                    [
+                        state_ensemble[:, :, -(self.num_previous_steps - state_ensemble_new.shape[-1]):],
+                        state_ensemble_new,
+                    ],
+                    axis=-1
+                )
+            else:
+                state_ensemble = state_ensemble_new
+        else:
+            state_ensemble, t_vec = self.forward_model.compute_forward_model(
+                state_ensemble=state_ensemble,
+                pars_ensemble=pars_ensemble[:, :, -1],
+                t_range=t_range,
+            )
 
         if self.forward_model.transform_state is not None:
                 
@@ -99,6 +120,7 @@ class BootstrapFilter(BaseParticleFilter):
                 pars=pars_ensemble[:, :, -1],
                 numpy=True if self.backend == 'numpy' else False,
             )
+
                 
         else:
             state_ensemble_transformed = \
@@ -111,9 +133,10 @@ class BootstrapFilter(BaseParticleFilter):
             observations=observations,
         )
 
+
         if self.backend == 'torch':
             likelihood = likelihood.detach().numpy()
-
+        
         # Update the particle weights
         self._update_weights(
             likelihood=likelihood,
@@ -128,6 +151,14 @@ class BootstrapFilter(BaseParticleFilter):
                     weights=self.weights,
                 )
             self._update_weights(restart=True)
+
+            self.model_error.update(
+                state_ensemble=\
+                    state_ensemble[:, :, :, -1] if self.model_type in ['PDE', 'FNO'] else \
+                    state_ensemble[:, :, -self.num_previous_steps:],
+                pars_ensemble=pars_ensemble[:, :, -1],
+            )
+
 
             print('Resampling')
             
