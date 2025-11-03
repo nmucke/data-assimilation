@@ -1,46 +1,22 @@
-[![Build Status](https://github.com/jfhbuist/hello-world-package/actions/workflows/CI.yml/badge.svg?event=push)](https://github.com/jfhbuist/hello-world-package/actions)
-[![codecov](https://codecov.io/gh/jfhbuist/hello-world-package/branch/master/graph/badge.svg?token=C4OJDHTMWJ)](https://codecov.io/gh/jfhbuist/hello-world-package)
+Code for the data assimilation in the paper [The deep latent space particle filter for real-time data assimilation with uncertainty quantification](https://www.nature.com/articles/s41598-024-69901-7).
 
-# hello-world-package
+Reference for citing the work:
 
-This is a simple python package template.  
-It uses pip for installation, flake8 for linting, pytest for testing, and coverage for monitoring test coverage.
+*Mücke, Nikolaj T., Sander M. Bohté, and Cornelis W. Oosterlee. "The deep latent space particle filter for real-time data assimilation with uncertainty quantification." Scientific Reports 14.1 (2024): 19447.*
 
-To use it, first create a virtual environment, and install flake8, pytest, and coverage using pip.  
-The following works on Windows: 
+BibTex for citing the work:
+
 ```
-py -3 -m venv .venv
-.venv\scripts\activate
-python -m pip install --upgrade pip
-pip install flake8 pytest coverage
-```
-
-Then, install the package, run it, and test it:
-```
-pip install -e .
-python -m hello_world_package
-flake8
-coverage run -m pytest
-coverage report
+@article{mucke2024deep,
+  title={The deep latent space particle filter for real-time data assimilation with uncertainty quantification},
+  author={M{\"u}cke, Nikolaj T and Boht{\'e}, Sander M and Oosterlee, Cornelis W},
+  journal={Scientific Reports},
+  volume={14},
+  number={1},
+  pages={19447},
+  year={2024},
+  publisher={Nature Publishing Group UK London}
+}
 ```
 
-If not developing, but only using the package, just do:
-```
-pip install .
-python -m hello_world_package
-```
-
-The package will now be listed when running:
-```
-pip freeze
-```
-
-It can be uninstalled using:
-```
-pip uninstall hello_world_package
-```
-
-Deactivate virtual environment:
-```
-deactivate
-```
+For the surrogate model code associated with the same paper, see this [repository](https://github.com/nmucke/latent-time-stepping/tree/master).
